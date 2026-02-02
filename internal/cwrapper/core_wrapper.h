@@ -11,12 +11,12 @@ extern "C" {
 #include <stdint.h>
 #include <stdbool.h>
 
-// Forward declarations
-typedef void* OpenVINOCore;
-typedef void* OpenVINOModel;
-typedef void* OpenVINOCompiledModel;
-typedef void* OpenVINOInferRequest;
-typedef void* OpenVINOTensor;
+// Opaque handle types (to handle unsafe pointers)
+typedef struct openvino_core* OpenVINOCore;
+typedef struct openvino_model* OpenVINOModel;
+typedef struct openvino_compiled_model* OpenVINOCompiledModel;
+typedef struct openvino_infer_request* OpenVINOInferRequest;
+typedef struct openvino_tensor* OpenVINOTensor;
 
 // Error handling
 typedef struct {

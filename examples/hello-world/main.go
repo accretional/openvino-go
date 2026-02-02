@@ -6,20 +6,22 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/accretional/openvino-go/pkg/openvino"
 )
 
 func main() {
-	// Check if model path is provided
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: hello-world <model_path>")
-		fmt.Println("Example: hello-world /path/to/model.xml")
-		fmt.Println("\nNote: This example requires an OpenVINO IR model (.xml and .bin files)")
+		fmt.Println("Usage: hello-world <model.xml>")
+		fmt.Println("\nNote: Provide the .xml file; the .bin file is loaded automatically.")
 		os.Exit(1)
 	}
 
 	modelPath := os.Args[1]
+	if !strings.HasSuffix(modelPath, ".xml") && !strings.HasSuffix(modelPath, ".onnx") {
+		log.Fatalf("Model must be a .xml (OpenVINO IR) or .onnx file, got: %s", modelPath)
+	}
 
 	// Step 1: Create OpenVINO Core
 	fmt.Println("Creating OpenVINO Core...")

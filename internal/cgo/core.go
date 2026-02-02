@@ -5,7 +5,7 @@ package cgo
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../cwrapper
-#cgo LDFLAGS: -L${SRCDIR}/../cwrapper -lopenvino_wrapper -lov::runtime
+#cgo LDFLAGS: -L${SRCDIR}/../cwrapper -Wl,-rpath,${SRCDIR}/../cwrapper -lopenvino_wrapper -lopenvino
 
 #include "core_wrapper.h"
 #include <stdlib.h>
@@ -29,13 +29,13 @@ func (e *Error) Error() string {
 }
 
 // Core represents an OpenVINO Core instance
-type Core C.OpenVINOCore
+type Core C.struct_openvino_core
 
 // CreateCore creates a new OpenVINO Core instance
 func CreateCore() (*Core, error) {
 	var cErr C.OpenVINOError
 	core := C.openvino_core_create(&cErr)
-	
+
 	if core == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -44,14 +44,14 @@ func CreateCore() (*Core, error) {
 		C.openvino_error_free(&cErr)
 		return nil, err
 	}
-	
-	return (*Core)(core), nil
+
+	return (*Core)(unsafe.Pointer(core)), nil
 }
 
 // Destroy releases the Core instance
 func (c *Core) Destroy() {
 	if c != nil {
-		C.openvino_core_destroy(C.OpenVINOCore(c))
+		C.openvino_core_destroy(C.OpenVINOCore(unsafe.Pointer(c)))
 	}
 }
 
@@ -59,9 +59,9 @@ func (c *Core) Destroy() {
 func (c *Core) GetAvailableDevices() ([]string, error) {
 	var count C.int32_t
 	var cErr C.OpenVINOError
-	
-	devices := C.openvino_core_get_available_devices(C.OpenVINOCore(c), &count, &cErr)
-	
+
+	devices := C.openvino_core_get_available_devices(C.OpenVINOCore(unsafe.Pointer(c)), &count, &cErr)
+
 	if devices == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -70,29 +70,29 @@ func (c *Core) GetAvailableDevices() ([]string, error) {
 		C.openvino_error_free(&cErr)
 		return nil, err
 	}
-	
+
 	defer C.openvino_core_free_device_list(devices, count)
-	
+
 	result := make([]string, int(count))
 	for i := 0; i < int(count); i++ {
 		ptr := (*C.char)(*(**C.char)(unsafe.Pointer(uintptr(unsafe.Pointer(devices)) + uintptr(i)*unsafe.Sizeof(devices))))
 		result[i] = C.GoString(ptr)
 	}
-	
+
 	return result, nil
 }
 
 // Model represents an OpenVINO Model
-type Model C.OpenVINOModel
+type Model C.struct_openvino_model
 
 // ReadModel loads a model from a file path
 func (c *Core) ReadModel(modelPath string) (*Model, error) {
 	cPath := C.CString(modelPath)
 	defer C.free(unsafe.Pointer(cPath))
-	
+
 	var cErr C.OpenVINOError
-	model := C.openvino_core_read_model(C.OpenVINOCore(c), cPath, &cErr)
-	
+	model := C.openvino_core_read_model(C.OpenVINOCore(unsafe.Pointer(c)), cPath, &cErr)
+
 	if model == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -101,33 +101,33 @@ func (c *Core) ReadModel(modelPath string) (*Model, error) {
 		C.openvino_error_free(&cErr)
 		return nil, err
 	}
-	
-	return (*Model)(model), nil
+
+	return (*Model)(unsafe.Pointer(model)), nil
 }
 
 // Destroy releases the Model instance
 func (m *Model) Destroy() {
 	if m != nil {
-		C.openvino_model_destroy(C.OpenVINOModel(m))
+		C.openvino_model_destroy(C.OpenVINOModel(unsafe.Pointer(m)))
 	}
 }
 
 // CompiledModel represents a compiled OpenVINO model
-type CompiledModel C.OpenVINOCompiledModel
+type CompiledModel C.struct_openvino_compiled_model
 
 // CompileModel compiles a model for a specific device
 func (c *Core) CompileModel(model *Model, device string) (*CompiledModel, error) {
 	cDevice := C.CString(device)
 	defer C.free(unsafe.Pointer(cDevice))
-	
+
 	var cErr C.OpenVINOError
 	compiled := C.openvino_core_compile_model(
-		C.OpenVINOCore(c),
-		C.OpenVINOModel(model),
+		C.OpenVINOCore(unsafe.Pointer(c)),
+		C.OpenVINOModel(unsafe.Pointer(model)),
 		cDevice,
 		&cErr,
 	)
-	
+
 	if compiled == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -136,28 +136,28 @@ func (c *Core) CompileModel(model *Model, device string) (*CompiledModel, error)
 		C.openvino_error_free(&cErr)
 		return nil, err
 	}
-	
-	return (*CompiledModel)(compiled), nil
+
+	return (*CompiledModel)(unsafe.Pointer(compiled)), nil
 }
 
 // Destroy releases the CompiledModel instance
 func (cm *CompiledModel) Destroy() {
 	if cm != nil {
-		C.openvino_compiled_model_destroy(C.OpenVINOCompiledModel(cm))
+		C.openvino_compiled_model_destroy(C.OpenVINOCompiledModel(unsafe.Pointer(cm)))
 	}
 }
 
 // InferRequest represents an inference request
-type InferRequest C.OpenVINOInferRequest
+type InferRequest C.struct_openvino_infer_request
 
 // CreateInferRequest creates a new inference request
 func (cm *CompiledModel) CreateInferRequest() (*InferRequest, error) {
 	var cErr C.OpenVINOError
 	request := C.openvino_compiled_model_create_infer_request(
-		C.OpenVINOCompiledModel(cm),
+		C.OpenVINOCompiledModel(unsafe.Pointer(cm)),
 		&cErr,
 	)
-	
+
 	if request == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -166,14 +166,14 @@ func (cm *CompiledModel) CreateInferRequest() (*InferRequest, error) {
 		C.openvino_error_free(&cErr)
 		return nil, err
 	}
-	
-	return (*InferRequest)(request), nil
+
+	return (*InferRequest)(unsafe.Pointer(request)), nil
 }
 
 // Destroy releases the InferRequest instance
 func (ir *InferRequest) Destroy() {
 	if ir != nil {
-		C.openvino_infer_request_destroy(C.OpenVINOInferRequest(ir))
+		C.openvino_infer_request_destroy(C.OpenVINOInferRequest(unsafe.Pointer(ir)))
 	}
 }
 
@@ -192,7 +192,6 @@ func (ir *InferRequest) SetInputTensor(name string, data interface{}, shape []in
 	cName := C.CString(name)
 	defer C.free(unsafe.Pointer(cName))
 
-	// Convert shape to C array
 	cShape := make([]C.int32_t, len(shape))
 	for i, s := range shape {
 		cShape[i] = C.int32_t(s)
@@ -201,7 +200,6 @@ func (ir *InferRequest) SetInputTensor(name string, data interface{}, shape []in
 	var cErr C.OpenVINOError
 	var dataPtr unsafe.Pointer
 
-	// Get pointer to data based on type
 	switch v := data.(type) {
 	case []float32:
 		dataPtr = unsafe.Pointer(&v[0])
@@ -216,7 +214,7 @@ func (ir *InferRequest) SetInputTensor(name string, data interface{}, shape []in
 	}
 
 	result := C.openvino_infer_request_set_input_tensor(
-		C.OpenVINOInferRequest(ir),
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
 		cName,
 		dataPtr,
 		&cShape[0],
@@ -239,7 +237,6 @@ func (ir *InferRequest) SetInputTensor(name string, data interface{}, shape []in
 
 // SetInputTensorByIndex sets an input tensor by index
 func (ir *InferRequest) SetInputTensorByIndex(index int32, data interface{}, shape []int64, dataType DataType) error {
-	// Convert shape to C array
 	cShape := make([]C.int32_t, len(shape))
 	for i, s := range shape {
 		cShape[i] = C.int32_t(s)
@@ -248,7 +245,6 @@ func (ir *InferRequest) SetInputTensorByIndex(index int32, data interface{}, sha
 	var cErr C.OpenVINOError
 	var dataPtr unsafe.Pointer
 
-	// Get pointer to data based on type
 	switch v := data.(type) {
 	case []float32:
 		dataPtr = unsafe.Pointer(&v[0])
@@ -263,7 +259,7 @@ func (ir *InferRequest) SetInputTensorByIndex(index int32, data interface{}, sha
 	}
 
 	result := C.openvino_infer_request_set_input_tensor_by_index(
-		C.OpenVINOInferRequest(ir),
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
 		C.int32_t(index),
 		dataPtr,
 		&cShape[0],
@@ -287,7 +283,7 @@ func (ir *InferRequest) SetInputTensorByIndex(index int32, data interface{}, sha
 // Infer runs synchronous inference
 func (ir *InferRequest) Infer() error {
 	var cErr C.OpenVINOError
-	result := C.openvino_infer_request_infer(C.OpenVINOInferRequest(ir), &cErr)
+	result := C.openvino_infer_request_infer(C.OpenVINOInferRequest(unsafe.Pointer(ir)), &cErr)
 
 	if result != 0 {
 		err := &Error{
@@ -302,7 +298,7 @@ func (ir *InferRequest) Infer() error {
 }
 
 // Tensor represents an OpenVINO tensor
-type Tensor C.OpenVINOTensor
+type Tensor C.struct_openvino_tensor
 
 // GetOutputTensor gets an output tensor by name
 func (ir *InferRequest) GetOutputTensor(name string) (*Tensor, error) {
@@ -311,7 +307,7 @@ func (ir *InferRequest) GetOutputTensor(name string) (*Tensor, error) {
 
 	var cErr C.OpenVINOError
 	tensor := C.openvino_infer_request_get_output_tensor(
-		C.OpenVINOInferRequest(ir),
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
 		cName,
 		&cErr,
 	)
@@ -325,14 +321,14 @@ func (ir *InferRequest) GetOutputTensor(name string) (*Tensor, error) {
 		return nil, err
 	}
 
-	return (*Tensor)(tensor), nil
+	return (*Tensor)(unsafe.Pointer(tensor)), nil
 }
 
 // GetOutputTensorByIndex gets an output tensor by index
 func (ir *InferRequest) GetOutputTensorByIndex(index int32) (*Tensor, error) {
 	var cErr C.OpenVINOError
 	tensor := C.openvino_infer_request_get_output_tensor_by_index(
-		C.OpenVINOInferRequest(ir),
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
 		C.int32_t(index),
 		&cErr,
 	)
@@ -346,23 +342,22 @@ func (ir *InferRequest) GetOutputTensorByIndex(index int32) (*Tensor, error) {
 		return nil, err
 	}
 
-	return (*Tensor)(tensor), nil
+	return (*Tensor)(unsafe.Pointer(tensor)), nil
 }
 
 // Destroy releases the Tensor instance
 func (t *Tensor) Destroy() {
 	if t != nil {
-		C.openvino_tensor_destroy(C.OpenVINOTensor(t))
+		C.openvino_tensor_destroy(C.OpenVINOTensor(unsafe.Pointer(t)))
 	}
 }
 
 // GetData returns the tensor data as a byte slice
-// The caller must know the data type to cast appropriately
 func (t *Tensor) GetData() ([]byte, error) {
 	var dataType C.int32_t
 	var cErr C.OpenVINOError
 
-	dataPtr := C.openvino_tensor_get_data(C.OpenVINOTensor(t), &dataType, &cErr)
+	dataPtr := C.openvino_tensor_get_data(C.OpenVINOTensor(unsafe.Pointer(t)), &dataType, &cErr)
 	if dataPtr == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -372,19 +367,16 @@ func (t *Tensor) GetData() ([]byte, error) {
 		return nil, err
 	}
 
-	// Get shape to calculate size
 	shape, err := t.GetShape()
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate total elements
 	totalElements := int64(1)
 	for _, dim := range shape {
 		totalElements *= int64(dim)
 	}
 
-	// Get element size based on data type
 	var elementSize int
 	switch DataType(dataType) {
 	case DataTypeFloat32:
@@ -396,11 +388,10 @@ func (t *Tensor) GetData() ([]byte, error) {
 	case DataTypeUint8:
 		elementSize = 1
 	default:
-		elementSize = 4 // Default to float32
+		elementSize = 4
 	}
 
 	dataSize := int(totalElements) * elementSize
-	// Copy data from C pointer to Go slice
 	data := make([]byte, dataSize)
 	C.memcpy(unsafe.Pointer(&data[0]), dataPtr, C.size_t(dataSize))
 
@@ -414,7 +405,6 @@ func (t *Tensor) GetDataAsFloat32() ([]float32, error) {
 		return nil, err
 	}
 
-	// Convert byte slice to float32 slice
 	floats := make([]float32, len(data)/4)
 	for i := range floats {
 		floats[i] = *(*float32)(unsafe.Pointer(&data[i*4]))
@@ -430,7 +420,6 @@ func (t *Tensor) GetDataAsInt64() ([]int64, error) {
 		return nil, err
 	}
 
-	// Convert byte slice to int64 slice
 	ints := make([]int64, len(data)/8)
 	for i := range ints {
 		ints[i] = *(*int64)(unsafe.Pointer(&data[i*8]))
@@ -444,7 +433,7 @@ func (t *Tensor) GetShape() ([]int32, error) {
 	var shapeSize C.int32_t
 	var cErr C.OpenVINOError
 
-	shapePtr := C.openvino_tensor_get_shape(C.OpenVINOTensor(t), &shapeSize, &cErr)
+	shapePtr := C.openvino_tensor_get_shape(C.OpenVINOTensor(unsafe.Pointer(t)), &shapeSize, &cErr)
 	if shapePtr == nil {
 		err := &Error{
 			Code:    int32(cErr.code),
@@ -464,7 +453,7 @@ func (t *Tensor) GetShape() ([]int32, error) {
 	return shape, nil
 }
 
-// Helper function to check if OpenVINO is available
+// IsAvailable checks if OpenVINO is available
 func IsAvailable() bool {
 	core, err := CreateCore()
 	if err != nil {

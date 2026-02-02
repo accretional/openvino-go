@@ -2,19 +2,41 @@
 
 Go bindings for Intel OpenVINO Runtime.
 
-## Overview
+## Prerequisites
 
-`openvino-go` provides idiomatic Go bindings for Intel OpenVINO Runtime, enabling Go applications to leverage OpenVINO's optimized inference engine for all supported neural network architectures, including transformers, CNNs, RNNs, and Graph Neural Networks (GNNs).
+- Linux (x86-64)
+- Go 1.21+
+- g++ with C++17 support
+- Intel OpenVINO Runtime 2024.x+
 
-## Features
+## Setup
 
-- **Complete OpenVINO API Coverage**: Core, Model, CompiledModel, InferRequest, Tensor
-- **All Neural Network Architectures**: Transformers, CNNs, RNNs, GNNs, Generative Models
-- **Multiple Model Formats**: OpenVINO IR, ONNX, PyTorch, TensorFlow, PaddlePaddle, JAX/Flax
-- **Device Support**: CPU, GPU, NPU, AUTO, HETERO, BATCH
-- **Performance Optimizations**: Quantization, model caching, automatic batching
-- **Idiomatic Go**: Type-safe, context-aware, proper resource management
-- **Cross-Platform**: Linux, macOS, Windows (Intel x86-64, ARM64, Apple Silicon)
+Install OpenVINO and build tools:
+
+```bash
+scripts/setup.sh
+```
+
+## Build
+
+```bash
+scripts/build.sh
+```
+
+Then use the package normally with `go build`, `go run`, etc. CGO links against the wrapper automatically.
+
+## Test (not yet added)
+
+```bash
+go test ./...
+```
+
+## Example
+
+```bash
+scripts/download-model.sh
+go run examples/hello-world/main.go models/test_model.xml
+```
 
 ## Status
 
