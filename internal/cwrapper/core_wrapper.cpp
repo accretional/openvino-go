@@ -24,6 +24,26 @@ static void set_error_from_exception(OpenVINOError* error, const std::exception&
     set_error(error, -1, e.what());
 }
 
+// Helper function to convert data type enum to OpenVINO element type
+static ov::element::Type get_element_type(int32_t data_type) {
+    switch (data_type) {
+        case 0: return ov::element::f32;  // float32
+        case 1: return ov::element::i64;  // int64
+        case 2: return ov::element::i32;  // int32
+        case 3: return ov::element::u8;   // uint8
+        default: return ov::element::f32;
+    }
+}
+
+// Helper function to calculate total elements from shape
+static size_t calculate_total_elements(const int32_t* shape, int32_t shape_size) {
+    size_t total = 1;
+    for (int32_t i = 0; i < shape_size; i++) {
+        total *= static_cast<size_t>(shape[i]);
+    }
+    return total;
+}
+
 extern "C" {
 
 OpenVINOCore openvino_core_create(OpenVINOError* error) {
@@ -137,6 +157,188 @@ OpenVINOInferRequest openvino_compiled_model_create_infer_request(
 void openvino_infer_request_destroy(OpenVINOInferRequest request) {
     if (request) {
         delete static_cast<ov::InferRequest*>(request);
+    }
+}
+
+int32_t openvino_infer_request_set_input_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    const void* data,
+    int32_t* shape,
+    int32_t shape_size,
+    int32_t data_type,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = static_cast<ov::InferRequest*>(request);
+        
+        // Convert shape to ov::Shape
+        ov::Shape ov_shape;
+        for (int32_t i = 0; i < shape_size; i++) {
+            ov_shape.push_back(static_cast<size_t>(shape[i]));
+        }
+        
+        // Get element type
+        ov::element::Type element_type = get_element_type(data_type);
+        
+        // Create tensor
+        size_t total_elements = calculate_total_elements(shape, shape_size);
+        size_t data_size = total_elements * element_type.size();
+        
+        // Create tensor with the data
+        ov::Tensor tensor(element_type, ov_shape);
+        std::memcpy(tensor.data(), data, data_size);
+        
+        // Set input tensor
+        req->set_input_tensor(name, tensor);
+        
+        return 0; // Success
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_set_input_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    const void* data,
+    int32_t* shape,
+    int32_t shape_size,
+    int32_t data_type,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = static_cast<ov::InferRequest*>(request);
+        
+        // Convert shape to ov::Shape
+        ov::Shape ov_shape;
+        for (int32_t i = 0; i < shape_size; i++) {
+            ov_shape.push_back(static_cast<size_t>(shape[i]));
+        }
+        
+        // Get element type
+        ov::element::Type element_type = get_element_type(data_type);
+        
+        // Create tensor
+        size_t total_elements = calculate_total_elements(shape, shape_size);
+        size_t data_size = total_elements * element_type.size();
+        
+        // Create tensor with the data
+        ov::Tensor tensor(element_type, ov_shape);
+        std::memcpy(tensor.data(), data, data_size);
+        
+        // Set input tensor by index
+        req->set_input_tensor(static_cast<size_t>(index), tensor);
+        
+        return 0; // Success
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_infer(OpenVINOInferRequest request, OpenVINOError* error) {
+    try {
+        ov::InferRequest* req = static_cast<ov::InferRequest*>(request);
+        req->infer();
+        return 0; // Success
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+OpenVINOTensor openvino_infer_request_get_output_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = static_cast<ov::InferRequest*>(request);
+        ov::Tensor tensor = req->get_tensor(name);
+        
+        // Allocate a new tensor and copy the data
+        ov::Tensor* tensor_ptr = new ov::Tensor(tensor);
+        return static_cast<OpenVINOTensor>(tensor_ptr);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+OpenVINOTensor openvino_infer_request_get_output_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = static_cast<ov::InferRequest*>(request);
+        ov::Tensor tensor = req->get_output_tensor(static_cast<size_t>(index));
+        
+        // Allocate a new tensor and copy the data
+        ov::Tensor* tensor_ptr = new ov::Tensor(tensor);
+        return static_cast<OpenVINOTensor>(tensor_ptr);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+void* openvino_tensor_get_data(OpenVINOTensor tensor, int32_t* data_type, OpenVINOError* error) {
+    try {
+        ov::Tensor* t = static_cast<ov::Tensor*>(tensor);
+        
+        // Get element type and convert to our enum
+        ov::element::Type element_type = t->get_element_type();
+        if (element_type == ov::element::f32) {
+            *data_type = 0; // float32
+        } else if (element_type == ov::element::i64) {
+            *data_type = 1; // int64
+        } else if (element_type == ov::element::i32) {
+            *data_type = 2; // int32
+        } else if (element_type == ov::element::u8) {
+            *data_type = 3; // uint8
+        } else {
+            *data_type = 0; // Default to float32
+        }
+        
+        return t->data();
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+int32_t* openvino_tensor_get_shape(OpenVINOTensor tensor, int32_t* shape_size, OpenVINOError* error) {
+    try {
+        ov::Tensor* t = static_cast<ov::Tensor*>(tensor);
+        ov::Shape shape = t->get_shape();
+        
+        *shape_size = static_cast<int32_t>(shape.size());
+        int32_t* result = static_cast<int32_t*>(malloc(sizeof(int32_t) * shape.size()));
+        
+        for (size_t i = 0; i < shape.size(); i++) {
+            result[i] = static_cast<int32_t>(shape[i]);
+        }
+        
+        return result;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        *shape_size = 0;
+        return nullptr;
+    }
+}
+
+void openvino_tensor_free_shape(int32_t* shape) {
+    if (shape) {
+        free(shape);
+    }
+}
+
+void openvino_tensor_destroy(OpenVINOTensor tensor) {
+    if (tensor) {
+        delete static_cast<ov::Tensor*>(tensor);
     }
 }
 

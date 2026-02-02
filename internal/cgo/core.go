@@ -9,6 +9,7 @@ package cgo
 
 #include "core_wrapper.h"
 #include <stdlib.h>
+#include <string.h>
 */
 import "C"
 import (
@@ -174,6 +175,293 @@ func (ir *InferRequest) Destroy() {
 	if ir != nil {
 		C.openvino_infer_request_destroy(C.OpenVINOInferRequest(ir))
 	}
+}
+
+// DataType represents the data type of a tensor
+type DataType int32
+
+const (
+	DataTypeFloat32 DataType = 0
+	DataTypeInt64   DataType = 1
+	DataTypeInt32   DataType = 2
+	DataTypeUint8   DataType = 3
+)
+
+// SetInputTensor sets an input tensor by name
+func (ir *InferRequest) SetInputTensor(name string, data interface{}, shape []int64, dataType DataType) error {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	// Convert shape to C array
+	cShape := make([]C.int32_t, len(shape))
+	for i, s := range shape {
+		cShape[i] = C.int32_t(s)
+	}
+
+	var cErr C.OpenVINOError
+	var dataPtr unsafe.Pointer
+
+	// Get pointer to data based on type
+	switch v := data.(type) {
+	case []float32:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int64:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int32:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint8:
+		dataPtr = unsafe.Pointer(&v[0])
+	default:
+		return errors.New("unsupported data type")
+	}
+
+	result := C.openvino_infer_request_set_input_tensor(
+		C.OpenVINOInferRequest(ir),
+		cName,
+		dataPtr,
+		&cShape[0],
+		C.int32_t(len(shape)),
+		C.int32_t(dataType),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+// SetInputTensorByIndex sets an input tensor by index
+func (ir *InferRequest) SetInputTensorByIndex(index int32, data interface{}, shape []int64, dataType DataType) error {
+	// Convert shape to C array
+	cShape := make([]C.int32_t, len(shape))
+	for i, s := range shape {
+		cShape[i] = C.int32_t(s)
+	}
+
+	var cErr C.OpenVINOError
+	var dataPtr unsafe.Pointer
+
+	// Get pointer to data based on type
+	switch v := data.(type) {
+	case []float32:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int64:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int32:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint8:
+		dataPtr = unsafe.Pointer(&v[0])
+	default:
+		return errors.New("unsupported data type")
+	}
+
+	result := C.openvino_infer_request_set_input_tensor_by_index(
+		C.OpenVINOInferRequest(ir),
+		C.int32_t(index),
+		dataPtr,
+		&cShape[0],
+		C.int32_t(len(shape)),
+		C.int32_t(dataType),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+// Infer runs synchronous inference
+func (ir *InferRequest) Infer() error {
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_infer(C.OpenVINOInferRequest(ir), &cErr)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+// Tensor represents an OpenVINO tensor
+type Tensor C.OpenVINOTensor
+
+// GetOutputTensor gets an output tensor by name
+func (ir *InferRequest) GetOutputTensor(name string) (*Tensor, error) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	var cErr C.OpenVINOError
+	tensor := C.openvino_infer_request_get_output_tensor(
+		C.OpenVINOInferRequest(ir),
+		cName,
+		&cErr,
+	)
+
+	if tensor == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	return (*Tensor)(tensor), nil
+}
+
+// GetOutputTensorByIndex gets an output tensor by index
+func (ir *InferRequest) GetOutputTensorByIndex(index int32) (*Tensor, error) {
+	var cErr C.OpenVINOError
+	tensor := C.openvino_infer_request_get_output_tensor_by_index(
+		C.OpenVINOInferRequest(ir),
+		C.int32_t(index),
+		&cErr,
+	)
+
+	if tensor == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	return (*Tensor)(tensor), nil
+}
+
+// Destroy releases the Tensor instance
+func (t *Tensor) Destroy() {
+	if t != nil {
+		C.openvino_tensor_destroy(C.OpenVINOTensor(t))
+	}
+}
+
+// GetData returns the tensor data as a byte slice
+// The caller must know the data type to cast appropriately
+func (t *Tensor) GetData() ([]byte, error) {
+	var dataType C.int32_t
+	var cErr C.OpenVINOError
+
+	dataPtr := C.openvino_tensor_get_data(C.OpenVINOTensor(t), &dataType, &cErr)
+	if dataPtr == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	// Get shape to calculate size
+	shape, err := t.GetShape()
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total elements
+	totalElements := int64(1)
+	for _, dim := range shape {
+		totalElements *= int64(dim)
+	}
+
+	// Get element size based on data type
+	var elementSize int
+	switch DataType(dataType) {
+	case DataTypeFloat32:
+		elementSize = 4
+	case DataTypeInt64:
+		elementSize = 8
+	case DataTypeInt32:
+		elementSize = 4
+	case DataTypeUint8:
+		elementSize = 1
+	default:
+		elementSize = 4 // Default to float32
+	}
+
+	dataSize := int(totalElements) * elementSize
+	// Copy data from C pointer to Go slice
+	data := make([]byte, dataSize)
+	C.memcpy(unsafe.Pointer(&data[0]), dataPtr, C.size_t(dataSize))
+
+	return data, nil
+}
+
+// GetDataAsFloat32 returns the tensor data as float32 slice
+func (t *Tensor) GetDataAsFloat32() ([]float32, error) {
+	data, err := t.GetData()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert byte slice to float32 slice
+	floats := make([]float32, len(data)/4)
+	for i := range floats {
+		floats[i] = *(*float32)(unsafe.Pointer(&data[i*4]))
+	}
+
+	return floats, nil
+}
+
+// GetDataAsInt64 returns the tensor data as int64 slice
+func (t *Tensor) GetDataAsInt64() ([]int64, error) {
+	data, err := t.GetData()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert byte slice to int64 slice
+	ints := make([]int64, len(data)/8)
+	for i := range ints {
+		ints[i] = *(*int64)(unsafe.Pointer(&data[i*8]))
+	}
+
+	return ints, nil
+}
+
+// GetShape returns the tensor shape
+func (t *Tensor) GetShape() ([]int32, error) {
+	var shapeSize C.int32_t
+	var cErr C.OpenVINOError
+
+	shapePtr := C.openvino_tensor_get_shape(C.OpenVINOTensor(t), &shapeSize, &cErr)
+	if shapePtr == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	defer C.openvino_tensor_free_shape(shapePtr)
+
+	shape := make([]int32, int(shapeSize))
+	for i := 0; i < int(shapeSize); i++ {
+		shape[i] = int32(*(*C.int32_t)(unsafe.Pointer(uintptr(unsafe.Pointer(shapePtr)) + uintptr(i)*unsafe.Sizeof(C.int32_t(0)))))
+	}
+
+	return shape, nil
 }
 
 // Helper function to check if OpenVINO is available

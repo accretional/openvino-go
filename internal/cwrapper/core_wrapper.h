@@ -16,6 +16,7 @@ typedef void* OpenVINOCore;
 typedef void* OpenVINOModel;
 typedef void* OpenVINOCompiledModel;
 typedef void* OpenVINOInferRequest;
+typedef void* OpenVINOTensor;
 
 // Error handling
 typedef struct {
@@ -50,6 +51,47 @@ OpenVINOInferRequest openvino_compiled_model_create_infer_request(
     OpenVINOError* error
 );
 void openvino_infer_request_destroy(OpenVINOInferRequest request);
+
+// Inference operations
+int32_t openvino_infer_request_set_input_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    const void* data,
+    int32_t* shape,
+    int32_t shape_size,
+    int32_t data_type,  // 0=float32, 1=int64, 2=int32, 3=uint8
+    OpenVINOError* error
+);
+
+int32_t openvino_infer_request_set_input_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    const void* data,
+    int32_t* shape,
+    int32_t shape_size,
+    int32_t data_type,
+    OpenVINOError* error
+);
+
+int32_t openvino_infer_request_infer(OpenVINOInferRequest request, OpenVINOError* error);
+
+OpenVINOTensor openvino_infer_request_get_output_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOError* error
+);
+
+OpenVINOTensor openvino_infer_request_get_output_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    OpenVINOError* error
+);
+
+// Tensor operations
+void* openvino_tensor_get_data(OpenVINOTensor tensor, int32_t* data_type, OpenVINOError* error);
+int32_t* openvino_tensor_get_shape(OpenVINOTensor tensor, int32_t* shape_size, OpenVINOError* error);
+void openvino_tensor_free_shape(int32_t* shape);
+void openvino_tensor_destroy(OpenVINOTensor tensor);
 
 // Error handling
 void openvino_error_free(OpenVINOError* error);
