@@ -46,11 +46,11 @@ From the repo root (after Setup and Build):
 go test ./...
 ```
 
-To run tests that need a model (compile/inference), generate one and set `OPENVINO_TEST_MODEL`:
+To run tests that need a model (compile/inference), download one and set `OPENVINO_TEST_MODEL`:
 
 ```bash
-scripts/download-model.sh   # requires: pip install openvino
-export OPENVINO_TEST_MODEL=models/test_model.xml
+go run cmd/ovmodel/main.go -model test-model
+export OPENVINO_TEST_MODEL=models/test_model.onnx
 go test ./... -v
 ```
 
@@ -61,8 +61,11 @@ go test ./... -v
 Basic inference pipeline demonstration:
 
 ```bash
-scripts/download-model.sh
-go run examples/hello-world/main.go models/test_model.xml
+# Download test model
+go run cmd/ovmodel/main.go -model test-model
+
+# Run the example (OpenVINO supports both .onnx and .xml)
+go run examples/hello-world/main.go models/test_model.onnx
 ```
 
 ### Text Embedding Example
@@ -70,8 +73,11 @@ go run examples/hello-world/main.go models/test_model.xml
 Text embedding inference with transformer models:
 
 ```bash
-# Requires a text embedding model
-go run examples/text-embedding/main.go model.xml "Your text here"
+# Download a text embedding model
+go run cmd/ovmodel/main.go -model all-MiniLM-L6-v2
+
+# Run the example
+go run examples/text-embedding/main.go models/sentence-transformers_all-MiniLM-L6-v2/model.onnx "Your text here"
 ```
 
 See `examples/text-embedding/README.md` for more details on getting and using embedding models.
