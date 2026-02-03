@@ -82,6 +82,30 @@ go run examples/text-embedding/main.go models/sentence-transformers_all-MiniLM-L
 
 See `examples/text-embedding/README.md` for more details on getting and using embedding models.
 
+### Text Embedding Async Example
+
+Asynchronous inference for batch text embedding processing:
+
+```bash
+# Download a text embedding model
+go run cmd/ovmodel/main.go -model all-MiniLM-L6-v2
+
+# Process multiple texts concurrently using async inference
+go run examples/text-embedding-async/main.go \
+  models/sentence-transformers_all-MiniLM-L6-v2/model.onnx \
+  "Hello, world!" \
+  "How are you?" \
+  "Good morning!"
+```
+
+This example demonstrates:
+- Async inference with `StartAsync()` and `Wait()`
+- Parallel processing of multiple texts
+- Request pooling for better performance
+- Throughput optimization
+
+See `examples/text-embedding-async/README.md` for more details.
+
 ## Troubleshooting
 
 `go: creating work dir: ... permission denied` or `stat /tmp: no such file or directory`

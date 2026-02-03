@@ -5,50 +5,32 @@ This example demonstrates how to use OpenVINO for text embedding inference with 
 ## Prerequisites
 
 - OpenVINO Runtime installed and configured
-- A text embedding model (e.g., sentence-transformers model converted to OpenVINO IR or ONNX)
+- A text embedding model (e.g., sentence-transformers model in ONNX format)
 
 ### Getting a Model
 
-You can download and convert a sentence-transformers model:
+Download a pre-converted text embedding model using the `ovmodel` CLI:
 
 ```bash
-# Using Python with openvino and sentence-transformers
-python3 << EOF
-from sentence_transformers import SentenceTransformer
-import openvino as ov
-import torch
+# Download a text embedding model
+go run cmd/ovmodel/main.go -model all-MiniLM-L6-v2
 
-# Load a sentence transformer model
-model = SentenceTransformer('all-MiniLM-L6-v2')
-
-# Trace with a concrete example input. forward() expects one positional arg: the input dict.
-# Pass it as a tuple of one element so the tracer calls forward(input_dict), not forward(*tensors).
-batch_size, seq_len = 1, 256
-input_dict = {
-    "input_ids": torch.randint(0, 30522, (batch_size, seq_len)),
-    "attention_mask": torch.ones(batch_size, seq_len, dtype=torch.long),
-    "token_type_ids": torch.zeros(batch_size, seq_len, dtype=torch.long),
-}
-example_input = (input_dict,)
-
-ov_model = ov.convert_model(model, example_input=example_input)
-ov.save_model(ov_model, "models/all-MiniLM-L6-v2.xml")
-EOF
+# Or download any HuggingFace model directly
+go run cmd/ovmodel/main.go -model sentence-transformers/paraphrase-MiniLM-L6-v2
 ```
 
-Or download a pre-converted model from the [OpenVINO Model Zoo](https://github.com/openvinotoolkit/open_model_zoo).
+The `ovmodel` tool automatically downloads ONNX models from HuggingFace Hub. See `cmd/ovmodel/README.md` for more details.
+
+Alternatively, you can download pre-converted models from the [OpenVINO Model Zoo](https://github.com/openvinotoolkit/open_model_zoo).
 
 ## Usage
 
 ```bash
-cd /path/to/openvino-go
-go run examples/text-embedding/main.go <path_to_model.xml|path_to_model.onnx> "<text>"
-```
+# First, download a model
+go run cmd/ovmodel/main.go -model all-MiniLM-L6-v2
 
-### Example
-
-```bash
-go run examples/text-embedding/main.go models/model.xml "Hello, world! This is a test."
+# Then run the example
+go run examples/text-embedding/main.go models/sentence-transformers_all-MiniLM-L6-v2/model.onnx "Hello, world! This is a test."
 ```
 
 ## Async Inference
