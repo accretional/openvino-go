@@ -8,6 +8,7 @@
 #include <memory>
 #include <sstream>
 #include <map>
+#include <chrono>
 
 static void set_error(OpenVINOError* error, int32_t code, const char* message) {
     if (error) {
@@ -307,6 +308,73 @@ int32_t openvino_infer_request_infer(OpenVINOInferRequest request, OpenVINOError
     } catch (const std::exception& e) {
         set_error_from_exception(error, e);
         return -1;
+    }
+}
+
+int32_t openvino_infer_request_start_async(OpenVINOInferRequest request, OpenVINOError* error) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        req->start_async();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_wait(OpenVINOInferRequest request, OpenVINOError* error) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        req->wait();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_wait_for(OpenVINOInferRequest request, int64_t timeout_ms, OpenVINOError* error) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        bool completed = req->wait_for(std::chrono::milliseconds(timeout_ms));
+        return completed ? 0 : 1; // 0 = completed, 1 = timeout
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+OpenVINOTensor openvino_infer_request_get_input_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        ov::Tensor tensor = req->get_tensor(name);
+
+        ov::Tensor* tensor_ptr = new ov::Tensor(tensor);
+        return reinterpret_cast<OpenVINOTensor>(tensor_ptr);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+OpenVINOTensor openvino_infer_request_get_input_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        ov::Tensor tensor = req->get_input_tensor(static_cast<size_t>(index));
+
+        ov::Tensor* tensor_ptr = new ov::Tensor(tensor);
+        return reinterpret_cast<OpenVINOTensor>(tensor_ptr);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
     }
 }
 

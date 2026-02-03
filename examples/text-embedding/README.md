@@ -51,6 +51,35 @@ go run examples/text-embedding/main.go <path_to_model.xml|path_to_model.onnx> "<
 go run examples/text-embedding/main.go models/model.xml "Hello, world! This is a test."
 ```
 
+## Async Inference
+
+For better throughput, you can use asynchronous inference:
+
+```go
+// Start async inference
+err = request.StartAsync()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Do other work while inference runs...
+
+// Wait for completion
+err = request.Wait()
+if err != nil {
+    log.Fatal(err)
+}
+
+// Or use convenience method
+err = request.InferAsync()
+
+// Or with timeout
+completed, err := request.WaitFor(5000) // 5 seconds
+if !completed {
+    log.Fatal("inference timed out")
+}
+```
+
 ## Input Format
 
 The example expects:

@@ -6,6 +6,7 @@ package cgo
 
 #include "core_wrapper.h"
 #include <stdlib.h>
+#include <stdint.h>
 */
 import "C"
 import (
@@ -145,4 +146,101 @@ func (ir *InferRequest) Infer() error {
 	}
 
 	return nil
+}
+
+func (ir *InferRequest) StartAsync() error {
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_start_async(C.OpenVINOInferRequest(unsafe.Pointer(ir)), &cErr)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+func (ir *InferRequest) Wait() error {
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_wait(C.OpenVINOInferRequest(unsafe.Pointer(ir)), &cErr)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+func (ir *InferRequest) WaitFor(timeoutMs int64) (bool, error) {
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_wait_for(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		C.int64_t(timeoutMs),
+		&cErr,
+	)
+
+	if result == -1 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return false, err
+	}
+
+	// result: 0 = completed, 1 = timeout
+	completed := result == 0
+	return completed, nil
+}
+
+func (ir *InferRequest) GetInputTensor(name string) (*Tensor, error) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	var cErr C.OpenVINOError
+	tensor := C.openvino_infer_request_get_input_tensor(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		cName,
+		&cErr,
+	)
+
+	if tensor == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	return (*Tensor)(unsafe.Pointer(tensor)), nil
+}
+
+func (ir *InferRequest) GetInputTensorByIndex(index int32) (*Tensor, error) {
+	var cErr C.OpenVINOError
+	tensor := C.openvino_infer_request_get_input_tensor_by_index(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		C.int32_t(index),
+		&cErr,
+	)
+
+	if tensor == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	return (*Tensor)(unsafe.Pointer(tensor)), nil
 }

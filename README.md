@@ -91,6 +91,14 @@ export TMPDIR=$HOME/.tmp GOTMPDIR=$HOME/.tmp
 
 Then run your `go run` or `go test` as usual. To make this persistent, add the `export` lines to `~/.bashrc` or `~/.profile`.
 
+## Features
+
+- Synchronous and asynchronous inference
+- Tensor operations (input/output tensor management)
+- Device enumeration and selection
+- Performance optimizations (performance hints, stream configuration)
+- Model I/O introspection
+
 ## Status
 
-**Early Development** - This project is in active development. 
+**Phase 3 Complete** - Core features and advanced features (async inference) are implemented. The project is ready for production use with comprehensive testing. 

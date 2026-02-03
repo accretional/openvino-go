@@ -84,6 +84,25 @@ int32_t openvino_infer_request_set_input_tensor_by_index(
 
 int32_t openvino_infer_request_infer(OpenVINOInferRequest request, OpenVINOError* error);
 
+// Asynchronous inference operations
+int32_t openvino_infer_request_start_async(OpenVINOInferRequest request, OpenVINOError* error);
+int32_t openvino_infer_request_wait(OpenVINOInferRequest request, OpenVINOError* error);
+int32_t openvino_infer_request_wait_for(OpenVINOInferRequest request, int64_t timeout_ms, OpenVINOError* error);
+
+// Input tensor retrieval
+OpenVINOTensor openvino_infer_request_get_input_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOError* error
+);
+
+OpenVINOTensor openvino_infer_request_get_input_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    OpenVINOError* error
+);
+
+// Output tensor retrieval
 OpenVINOTensor openvino_infer_request_get_output_tensor(
     OpenVINOInferRequest request,
     const char* name,

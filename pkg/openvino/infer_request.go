@@ -52,3 +52,74 @@ func (ir *InferRequest) InferWithContext(ctx context.Context) error {
 		return err
 	}
 }
+
+// StartAsync starts asynchronous inference. The inference runs in the background.
+// Use Wait() or WaitFor() to wait for completion.
+func (ir *InferRequest) StartAsync() error {
+	return ir.request.StartAsync()
+}
+
+// Wait waits for asynchronous inference to complete. This blocks until inference is done.
+func (ir *InferRequest) Wait() error {
+	return ir.request.Wait()
+}
+
+// WaitFor waits for asynchronous inference to complete with a timeout.
+// Returns true if inference completed, false if timeout occurred.
+func (ir *InferRequest) WaitFor(timeoutMs int64) (bool, error) {
+	return ir.request.WaitFor(timeoutMs)
+}
+
+// InferAsync starts asynchronous inference and waits for completion.
+// This is a convenience method that combines StartAsync() and Wait().
+func (ir *InferRequest) InferAsync() error {
+	if err := ir.StartAsync(); err != nil {
+		return err
+	}
+	return ir.Wait()
+}
+
+// InferAsyncWithContext starts asynchronous inference and waits for completion with context support.
+// This is a convenience method that combines StartAsync() and Wait() with context cancellation.
+func (ir *InferRequest) InferAsyncWithContext(ctx context.Context) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+
+	if err := ir.StartAsync(); err != nil {
+		return err
+	}
+
+	// Wait for completion, checking context periodically
+	done := make(chan error, 1)
+	go func() {
+		done <- ir.Wait()
+	}()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case err := <-done:
+		return err
+	}
+}
+
+// GetInputTensor retrieves an input tensor by name.
+func (ir *InferRequest) GetInputTensor(name string) (*Tensor, error) {
+	tensor, err := ir.request.GetInputTensor(name)
+	if err != nil {
+		return nil, err
+	}
+	return &Tensor{tensor: tensor}, nil
+}
+
+// GetInputTensorByIndex retrieves an input tensor by index.
+func (ir *InferRequest) GetInputTensorByIndex(index int32) (*Tensor, error) {
+	tensor, err := ir.request.GetInputTensorByIndex(index)
+	if err != nil {
+		return nil, err
+	}
+	return &Tensor{tensor: tensor}, nil
+}
