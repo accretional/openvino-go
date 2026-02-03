@@ -2,7 +2,7 @@
 
 Go bindings for Intel OpenVINO Runtime.
 
-For now, the supported way to use this project is: **clone the repo, build it, then use it from here.** We are not yet promoting use as a standalone Go package (`go get`) until the build and distribution story is streamlined.
+For now, the supported way to use this project is: **clone the repo, build it, then use it from here.** 
 
 ## How to use (for now)
 
