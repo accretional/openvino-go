@@ -2,6 +2,22 @@
 
 Go bindings for Intel OpenVINO Runtime.
 
+## Install
+
+This module uses **CGO** and requires the **Intel OpenVINO Runtime** and a C++ toolchain to build. Add it to your project with:
+
+```bash
+go get github.com/accretional/openvino-go/pkg/openvino@latest
+```
+
+Import in your code:
+
+```go
+import "github.com/accretional/openvino-go/pkg/openvino"
+```
+
+Make sure CGO is enabled when building (`CGO_ENABLED=1`, which is the default when cgo is available). Your build environment must have OpenVINO installed and the C++ wrapper built (See Setup and Build below).
+
 ## Prerequisites
 
 - Linux (x86-64)
@@ -23,14 +39,12 @@ scripts/setup.sh
 scripts/build.sh
 ```
 
-Then use the package normally with `go build`, `go run`, etc. CGO links against the wrapper automatically.
-
 ## Test
 
 Run all tests:
 
 ```bash
-scripts/download-model.sh # Generates a small model using OpenVINO Python pkg. Needs "pip install openvino"
+scripts/download-model.sh   # Generates a small model (requires: pip install openvino)
 export OPENVINO_TEST_MODEL=models/test_model.xml
 go test ./... -v
 ```

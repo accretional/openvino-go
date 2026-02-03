@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.21"
+
+      - name: Install OpenVINO and build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y g++ curl gnupg ca-certificates
+          curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
+            | sudo gpg --dearmor -o /usr/share/keyrings/intel-openvino.gpg
+          echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2024 ubuntu22 main" \
+            | sudo tee /etc/apt/sources.list.d/intel-openvino.list
+          sudo apt-get update
+          sudo apt-get install -y openvino-2024.4.0
+
+      - name: Build C++ wrapper
+        run: scripts/build.sh
+
+      - name: Tidy Go module
+        run: go mod tidy
+
+      - name: Run tests
+        run: go test ./... -v -count=1
