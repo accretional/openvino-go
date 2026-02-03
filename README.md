@@ -25,10 +25,14 @@ scripts/build.sh
 
 Then use the package normally with `go build`, `go run`, etc. CGO links against the wrapper automatically.
 
-## Test (not yet added)
+## Test
+
+Run all tests:
 
 ```bash
-go test ./...
+scripts/download-model.sh # Generates a small model using OpenVINO Python pkg. Needs "pip install openvino"
+export OPENVINO_TEST_MODEL=models/test_model.xml
+go test ./... -v
 ```
 
 ## Example
