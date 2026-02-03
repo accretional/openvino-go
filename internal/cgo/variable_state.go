@@ -18,7 +18,7 @@ type VariableState C.struct_openvino_variable_state
 func (ir *InferRequest) QueryState() ([]*VariableState, error) {
 	var stateCount C.int32_t
 	var cErr C.OpenVINOError
-	var statesPtr *C.struct_openvino_variable_state
+	var statesPtr *C.OpenVINOVariableState
 
 	result := C.openvino_infer_request_query_state(
 		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
@@ -40,8 +40,9 @@ func (ir *InferRequest) QueryState() ([]*VariableState, error) {
 		return []*VariableState{}, nil
 	}
 
-	states := make([]*VariableState, int(stateCount))
+	// statesPtr points to the first element of an array of OpenVINOVariableState (pointers)
 	statesSlice := unsafe.Slice(statesPtr, int(stateCount))
+	states := make([]*VariableState, int(stateCount))
 	for i := range states {
 		states[i] = (*VariableState)(unsafe.Pointer(statesSlice[i]))
 	}

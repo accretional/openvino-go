@@ -42,12 +42,29 @@ static ov::element::Type get_element_type(int32_t data_type) {
     }
 }
 
+
 static size_t calculate_total_elements(const int32_t* shape, int32_t shape_size) {
     size_t total = 1;
     for (int32_t i = 0; i < shape_size; i++) {
         total *= static_cast<size_t>(shape[i]);
     }
     return total;
+}
+
+static int32_t element_type_to_int32(ov::element::Type type) {
+    if (type == ov::element::f32) return 0;
+    if (type == ov::element::i64) return 1;
+    if (type == ov::element::i32) return 2;
+    if (type == ov::element::u8) return 3;
+    if (type == ov::element::f64) return 4;
+    if (type == ov::element::i8) return 5;
+    if (type == ov::element::u16) return 6;
+    if (type == ov::element::i16) return 7;
+    if (type == ov::element::u32) return 8;
+    if (type == ov::element::u64) return 9;
+    if (type == ov::element::f16) return 10;
+    if (type == ov::element::bf16) return 11;
+    return 0; // Default to float32
 }
 
 extern "C" {
@@ -815,22 +832,6 @@ void openvino_variable_state_free_name(const char* name) {
     if (name) {
         free(const_cast<char*>(name));
     }
-}
-
-static int32_t element_type_to_int32(ov::element::Type type) {
-    if (type == ov::element::f32) return 0;
-    if (type == ov::element::i64) return 1;
-    if (type == ov::element::i32) return 2;
-    if (type == ov::element::u8) return 3;
-    if (type == ov::element::f64) return 4;
-    if (type == ov::element::i8) return 5;
-    if (type == ov::element::u16) return 6;
-    if (type == ov::element::i16) return 7;
-    if (type == ov::element::u32) return 8;
-    if (type == ov::element::u64) return 9;
-    if (type == ov::element::f16) return 10;
-    if (type == ov::element::bf16) return 11;
-    return 0; // Default to float32
 }
 
 // Helper: fill shape from PartialShape; use -1 for dynamic dimensions

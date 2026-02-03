@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/accretional/openvino-go"
+	"github.com/accretional/openvino-go/pkg/openvino"
 )
 
 // This example demonstrates hierarchical data processing using OpenVINO Go bindings.
@@ -16,6 +16,8 @@ func main() {
 	if len(os.Args) < 2 {
 		fmt.Println("Usage: go run main.go <model_path>")
 		fmt.Println("Example: go run main.go model.xml")
+		fmt.Println("Note: This example uses float32 data and is aimed at models with fixed or dynamic shapes.")
+		fmt.Println("For embedding models (e.g. all-MiniLM-L6-v2) use the text-embedding example instead.")
 		os.Exit(1)
 	}
 
@@ -106,18 +108,15 @@ func processMultiLevel(core *openvino.Core, compiled *openvino.CompiledModel,
 		}
 		defer sentenceTensor.Close()
 
-		// Set input (adjust shape if needed)
-		inputShape := shapeToInt64(inputInfo.Shape)
-		if len(inputShape) > 0 && inputShape[1] != int64(len(sentence)) {
-			// Reshape tensor to match model input
+		// Resolve dynamic dimensions (-1) to concrete shape; use [1, sentence_len] for this input
+		inputShape := resolveShape(shapeToInt64(inputInfo.Shape), []int64{1, int64(len(sentence))})
+		if len(inputShape) > 1 && inputShape[1] != int64(len(sentence)) {
 			err = sentenceTensor.SetShape(inputShape)
 			if err != nil {
 				log.Printf("Warning: SetShape failed: %v", err)
 			}
 		}
 
-		// For demonstration, we'll use SetInputTensor directly
-		// In real scenarios, you might need to reshape or pad
 		err = req.SetInputTensor(inputInfo.Name, sentence, inputShape, inputInfo.DataType)
 		if err != nil {
 			log.Printf("SetInputTensor failed: %v", err)
@@ -204,8 +203,8 @@ func processWithPreallocatedOutput(compiled *openvino.CompiledModel,
 	}
 	defer req.Close()
 
-	// Pre-allocate output tensor
-	outputShape := shapeToInt64(outputInfo.Shape)
+	// Pre-allocate output tensor (resolve dynamic -1 to concrete dimensions)
+	outputShape := resolveShape(shapeToInt64(outputInfo.Shape), nil)
 	outputTensor, err := openvino.NewTensor(outputInfo.DataType, outputShape)
 	if err != nil {
 		log.Fatalf("Failed to create output tensor: %v", err)
@@ -221,8 +220,8 @@ func processWithPreallocatedOutput(compiled *openvino.CompiledModel,
 
 	fmt.Printf("  Pre-allocated output tensor with shape: %v\n", outputShape)
 
-	// Set input
-	inputShape := shapeToInt64(inputInfo.Shape)
+	// Set input (resolve dynamic -1 so shape is concrete)
+	inputShape := resolveShape(shapeToInt64(inputInfo.Shape), nil)
 	size := int64(1)
 	for _, d := range inputShape {
 		size *= d
@@ -305,6 +304,28 @@ func shapeToInt64(s []int32) []int64 {
 	out := make([]int64, len(s))
 	for i, v := range s {
 		out[i] = int64(v)
+	}
+	return out
+}
+
+// resolveShape replaces dynamic dimensions (-1) with concrete values so tensors can be allocated.
+// OpenVINO cannot allocate memory for shape [-1, -1]; use concrete dimensions (e.g. 1, 128).
+func resolveShape(shape []int64, defaults []int64) []int64 {
+	if len(defaults) < len(shape) {
+		// fallback defaults: batch=1, then 128 for remaining dims
+		defaults = make([]int64, len(shape))
+		defaults[0] = 1
+		for i := 1; i < len(shape); i++ {
+			defaults[i] = 128
+		}
+	}
+	out := make([]int64, len(shape))
+	for i, d := range shape {
+		if d == -1 || d < 0 {
+			out[i] = defaults[i]
+		} else {
+			out[i] = d
+		}
 	}
 	return out
 }
