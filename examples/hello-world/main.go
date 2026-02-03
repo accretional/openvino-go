@@ -3,10 +3,12 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/accretional/openvino-go/pkg/openvino"
 )
@@ -47,19 +49,47 @@ func main() {
 	}
 	defer model.Close()
 
-	// Step 4: Compile model for CPU
-	fmt.Println("Compiling model for CPU...")
+	// Step 3.5: Get model I/O information (NEW in Phase 2)
+	fmt.Println("\n=== Model I/O Information ===")
+	inputs, err := model.GetInputs()
+	if err != nil {
+		log.Printf("Warning: Failed to get input info: %v", err)
+	} else {
+		fmt.Printf("Model has %d input(s):\n", len(inputs))
+		for i, input := range inputs {
+			fmt.Printf("  Input %d: name='%s', shape=%v, type=%d\n", i, input.Name, input.Shape, input.DataType)
+		}
+	}
+
+	outputs, err := model.GetOutputs()
+	if err != nil {
+		log.Printf("Warning: Failed to get output info: %v", err)
+	} else {
+		fmt.Printf("Model has %d output(s):\n", len(outputs))
+		for i, output := range outputs {
+			fmt.Printf("  Output %d: name='%s', shape=%v, type=%d\n", i, output.Name, output.Shape, output.DataType)
+		}
+	}
+	fmt.Println()
+
+	// Step 4: Compile model for CPU with optimizations (NEW in Phase 2)
+	fmt.Println("Compiling model for CPU with performance optimizations...")
 	device := "CPU"
 	if len(devices) > 0 {
 		// Use first available device (could be CPU, GPU, etc.)
 		device = devices[0]
 	}
-	compiledModel, err := core.CompileModel(model, device)
+	
+	// Use property configuration options (NEW in Phase 2)
+	compiledModel, err := core.CompileModel(model, device,
+		openvino.PerformanceHint(openvino.PerformanceModeThroughput),
+		openvino.NumStreams(4),
+	)
 	if err != nil {
 		log.Fatalf("Failed to compile model: %v", err)
 	}
 	defer compiledModel.Close()
-	fmt.Printf("Model compiled successfully for device: %s\n", device)
+	fmt.Printf("Model compiled successfully for device: %s with optimizations\n", device)
 
 	// Step 5: Create inference request
 	fmt.Println("Creating inference request...")
@@ -69,16 +99,31 @@ func main() {
 	}
 	defer request.Close()
 
-	// Step 6: Prepare input data
-	// Note: This is a placeholder. In a real scenario, you would:
-	// - Know the model's input shape and type
-	// - Preprocess your data accordingly
-	// - Set the appropriate input tensor
+	// Step 6: Prepare input data using model I/O information (NEW in Phase 2)
 	fmt.Println("Preparing input data...")
 	
-	// Example: Create dummy input data (float32, shape [1, 3, 224, 224] for image classification)
-	// In practice, you would load and preprocess an actual image
-	inputShape := []int64{1, 3, 224, 224}
+	var inputShape []int64
+	var inputName string
+	var inputDataType openvino.DataType
+	
+	// Use model I/O information if available
+	if len(inputs) > 0 {
+		inputName = inputs[0].Name
+		inputDataType = inputs[0].DataType
+		// Convert []int32 to []int64
+		inputShape = make([]int64, len(inputs[0].Shape))
+		for i, dim := range inputs[0].Shape {
+			inputShape[i] = int64(dim)
+		}
+		fmt.Printf("Using model input info: name='%s', shape=%v, type=%d\n", inputName, inputShape, inputDataType)
+	} else {
+		// Fallback to default shape if I/O info not available
+		inputShape = []int64{1, 3, 224, 224}
+		inputName = "input"
+		inputDataType = openvino.DataTypeFloat32
+		fmt.Printf("Using default input shape: %v\n", inputShape)
+	}
+	
 	inputSize := int64(1)
 	for _, dim := range inputShape {
 		inputSize *= dim
@@ -90,33 +135,53 @@ func main() {
 	}
 
 	// Step 7: Set input tensor
-	// Try by index first (most models use index 0 for the first input)
 	fmt.Println("Setting input tensor...")
-	err = request.SetInputTensorByIndex(0, inputData, inputShape, openvino.DataTypeFloat32)
+	// Try by name first (using model I/O info), then by index
+	err = request.SetInputTensor(inputName, inputData, inputShape, inputDataType)
 	if err != nil {
-		// If that fails, try by name (common names: "input", "data", "image", etc.)
-		fmt.Printf("Setting by index failed, trying by name 'input'...\n")
-		err = request.SetInputTensor("input", inputData, inputShape, openvino.DataTypeFloat32)
+		// If that fails, try by index
+		fmt.Printf("Setting by name failed, trying by index 0...\n")
+		err = request.SetInputTensorByIndex(0, inputData, inputShape, inputDataType)
 		if err != nil {
-			log.Fatalf("Failed to set input tensor: %v\nNote: You may need to adjust the input name or shape based on your model", err)
+			log.Fatalf("Failed to set input tensor: %v", err)
 		}
 	}
 
-	// Step 8: Run inference
+	// Step 8: Run inference with context support (NEW in Phase 2)
 	fmt.Println("Running inference...")
-	err = request.Infer()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	err = request.InferWithContext(ctx)
 	if err != nil {
+		if err == context.DeadlineExceeded {
+			log.Fatalf("Inference timed out after 30 seconds")
+		}
 		log.Fatalf("Failed to run inference: %v", err)
 	}
 
-	// Step 9: Get output tensor
+	// Step 9: Get output tensor using model I/O information (NEW in Phase 2)
 	fmt.Println("Getting output tensor...")
-	outputTensor, err := request.GetOutputTensorByIndex(0)
-	if err != nil {
-		// Try by name
-		outputTensor, err = request.GetOutputTensor("output")
+	var outputTensor *openvino.Tensor
+	if len(outputs) > 0 {
+		// Use model I/O info to get output by name
+		outputTensor, err = request.GetOutputTensor(outputs[0].Name)
 		if err != nil {
-			log.Fatalf("Failed to get output tensor: %v\nNote: You may need to adjust the output name based on your model", err)
+			// Fallback to index
+			outputTensor, err = request.GetOutputTensorByIndex(0)
+			if err != nil {
+				log.Fatalf("Failed to get output tensor: %v", err)
+			}
+		}
+	} else {
+		// Fallback to index if I/O info not available
+		outputTensor, err = request.GetOutputTensorByIndex(0)
+		if err != nil {
+			// Try by common name
+			outputTensor, err = request.GetOutputTensor("output")
+			if err != nil {
+				log.Fatalf("Failed to get output tensor: %v", err)
+			}
 		}
 	}
 	defer outputTensor.Close()

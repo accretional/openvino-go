@@ -43,6 +43,15 @@ OpenVINOCompiledModel openvino_core_compile_model(
     const char* device,
     OpenVINOError* error
 );
+OpenVINOCompiledModel openvino_core_compile_model_with_properties(
+    OpenVINOCore core,
+    OpenVINOModel model,
+    const char* device,
+    const char* property_keys,
+    const char* property_values,
+    int32_t property_count,
+    OpenVINOError* error
+);
 void openvino_compiled_model_destroy(OpenVINOCompiledModel compiled_model);
 
 // Infer request
@@ -92,6 +101,18 @@ void* openvino_tensor_get_data(OpenVINOTensor tensor, int32_t* data_type, OpenVI
 int32_t* openvino_tensor_get_shape(OpenVINOTensor tensor, int32_t* shape_size, OpenVINOError* error);
 void openvino_tensor_free_shape(int32_t* shape);
 void openvino_tensor_destroy(OpenVINOTensor tensor);
+
+// Model I/O information
+typedef struct {
+    char* name;
+    int32_t* shape;
+    int32_t shape_size;
+    int32_t data_type;
+} OpenVINOPortInfo;
+
+OpenVINOPortInfo* openvino_model_get_inputs(OpenVINOModel model, int32_t* count, OpenVINOError* error);
+OpenVINOPortInfo* openvino_model_get_outputs(OpenVINOModel model, int32_t* count, OpenVINOError* error);
+void openvino_model_free_port_info(OpenVINOPortInfo* ports, int32_t count);
 
 // Error handling
 void openvino_error_free(OpenVINOError* error);

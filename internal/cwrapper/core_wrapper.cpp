@@ -6,6 +6,8 @@
 #include <vector>
 #include <cstring>
 #include <memory>
+#include <sstream>
+#include <map>
 
 static void set_error(OpenVINOError* error, int32_t code, const char* message) {
     if (error) {
@@ -117,6 +119,81 @@ OpenVINOCompiledModel openvino_core_compile_model(
 
         ov::CompiledModel* compiled = new ov::CompiledModel(
             c->compile_model(*m, device)
+        );
+        return reinterpret_cast<OpenVINOCompiledModel>(compiled);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+OpenVINOCompiledModel openvino_core_compile_model_with_properties(
+    OpenVINOCore core,
+    OpenVINOModel model,
+    const char* device,
+    const char* property_keys,
+    const char* property_values,
+    int32_t property_count,
+    OpenVINOError* error
+) {
+    try {
+        ov::Core* c = reinterpret_cast<ov::Core*>(core);
+        std::shared_ptr<ov::Model>* m = reinterpret_cast<std::shared_ptr<ov::Model>*>(model);
+
+        // Parse property keys and values (comma-separated strings)
+        std::map<std::string, std::string> props;
+        std::istringstream keys_stream(property_keys);
+        std::istringstream values_stream(property_values);
+        std::string key, value;
+        
+        for (int32_t i = 0; i < property_count; i++) {
+            if (!std::getline(keys_stream, key, ',') || !std::getline(values_stream, value, ',')) {
+                set_error(error, -1, "Invalid property format");
+                return nullptr;
+            }
+            // Trim whitespace
+            key.erase(0, key.find_first_not_of(" \t"));
+            key.erase(key.find_last_not_of(" \t") + 1);
+            value.erase(0, value.find_first_not_of(" \t"));
+            value.erase(value.find_last_not_of(" \t") + 1);
+            props[key] = value;
+        }
+
+        // Build ov::AnyMap from properties
+        ov::AnyMap config;
+        for (const auto& prop : props) {
+            // Handle PERFORMANCE_HINT as string
+            if (prop.first == "PERFORMANCE_HINT") {
+                config[prop.first] = prop.second; // "LATENCY" or "THROUGHPUT"
+            }
+            // Handle numeric properties
+            else if (prop.first == "INFERENCE_NUM_THREADS" || prop.first == "NUM_STREAMS") {
+                try {
+                    int32_t int_val = std::stoi(prop.second);
+                    config[prop.first] = int_val;
+                } catch (...) {
+                    // If not an integer, use as string
+                    config[prop.first] = prop.second;
+                }
+            }
+            // Handle other properties that might be numeric
+            else if (prop.first.find("STREAM") != std::string::npos || 
+                     prop.first.find("THREAD") != std::string::npos) {
+                try {
+                    int32_t int_val = std::stoi(prop.second);
+                    config[prop.first] = int_val;
+                } catch (...) {
+                    config[prop.first] = prop.second;
+                }
+            }
+            // Default: use as string
+            else {
+                config[prop.first] = prop.second;
+            }
+        }
+
+        ov::CompiledModel* compiled = new ov::CompiledModel(
+            c->compile_model(*m, device, config)
         );
         return reinterpret_cast<OpenVINOCompiledModel>(compiled);
     } catch (const std::exception& e) {
@@ -327,6 +404,88 @@ void openvino_error_free(OpenVINOError* error) {
     if (error && error->message) {
         free(error->message);
         error->message = nullptr;
+    }
+}
+
+static int32_t element_type_to_int32(ov::element::Type type) {
+    if (type == ov::element::f32) return 0;
+    if (type == ov::element::i64) return 1;
+    if (type == ov::element::i32) return 2;
+    if (type == ov::element::u8) return 3;
+    return 0; // Default to float32
+}
+
+OpenVINOPortInfo* openvino_model_get_inputs(OpenVINOModel model, int32_t* count, OpenVINOError* error) {
+    try {
+        std::shared_ptr<ov::Model>* m = reinterpret_cast<std::shared_ptr<ov::Model>*>(model);
+        const auto& inputs = (*m)->inputs();
+        
+        *count = static_cast<int32_t>(inputs.size());
+        OpenVINOPortInfo* result = static_cast<OpenVINOPortInfo*>(malloc(sizeof(OpenVINOPortInfo) * inputs.size()));
+        
+        for (size_t i = 0; i < inputs.size(); i++) {
+            const auto& input = inputs[i];
+            result[i].name = strdup(input.get_any_name().c_str());
+            
+            const auto& shape = input.get_shape();
+            result[i].shape_size = static_cast<int32_t>(shape.size());
+            result[i].shape = static_cast<int32_t*>(malloc(sizeof(int32_t) * shape.size()));
+            for (size_t j = 0; j < shape.size(); j++) {
+                result[i].shape[j] = static_cast<int32_t>(shape[j]);
+            }
+            
+            result[i].data_type = element_type_to_int32(input.get_element_type());
+        }
+        
+        return result;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        *count = 0;
+        return nullptr;
+    }
+}
+
+OpenVINOPortInfo* openvino_model_get_outputs(OpenVINOModel model, int32_t* count, OpenVINOError* error) {
+    try {
+        std::shared_ptr<ov::Model>* m = reinterpret_cast<std::shared_ptr<ov::Model>*>(model);
+        const auto& outputs = (*m)->outputs();
+        
+        *count = static_cast<int32_t>(outputs.size());
+        OpenVINOPortInfo* result = static_cast<OpenVINOPortInfo*>(malloc(sizeof(OpenVINOPortInfo) * outputs.size()));
+        
+        for (size_t i = 0; i < outputs.size(); i++) {
+            const auto& output = outputs[i];
+            result[i].name = strdup(output.get_any_name().c_str());
+            
+            const auto& shape = output.get_shape();
+            result[i].shape_size = static_cast<int32_t>(shape.size());
+            result[i].shape = static_cast<int32_t*>(malloc(sizeof(int32_t) * shape.size()));
+            for (size_t j = 0; j < shape.size(); j++) {
+                result[i].shape[j] = static_cast<int32_t>(shape[j]);
+            }
+            
+            result[i].data_type = element_type_to_int32(output.get_element_type());
+        }
+        
+        return result;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        *count = 0;
+        return nullptr;
+    }
+}
+
+void openvino_model_free_port_info(OpenVINOPortInfo* ports, int32_t count) {
+    if (ports) {
+        for (int32_t i = 0; i < count; i++) {
+            if (ports[i].name) {
+                free(ports[i].name);
+            }
+            if (ports[i].shape) {
+                free(ports[i].shape);
+            }
+        }
+        free(ports);
     }
 }
 
