@@ -415,6 +415,15 @@ static int32_t element_type_to_int32(ov::element::Type type) {
     return 0; // Default to float32
 }
 
+// Helper: fill shape from PartialShape; use -1 for dynamic dimensions
+static void fill_shape_from_partial(ov::PartialShape ps, int32_t* shape_out, int32_t* shape_size) {
+    *shape_size = static_cast<int32_t>(ps.size());
+    for (size_t j = 0; j < ps.size(); j++) {
+        const ov::Dimension& d = ps[j];
+        shape_out[j] = d.is_dynamic() ? -1 : static_cast<int32_t>(d.get_length());
+    }
+}
+
 OpenVINOPortInfo* openvino_model_get_inputs(OpenVINOModel model, int32_t* count, OpenVINOError* error) {
     try {
         std::shared_ptr<ov::Model>* m = reinterpret_cast<std::shared_ptr<ov::Model>*>(model);
@@ -427,12 +436,10 @@ OpenVINOPortInfo* openvino_model_get_inputs(OpenVINOModel model, int32_t* count,
             const auto& input = inputs[i];
             result[i].name = strdup(input.get_any_name().c_str());
             
-            const auto& shape = input.get_shape();
-            result[i].shape_size = static_cast<int32_t>(shape.size());
-            result[i].shape = static_cast<int32_t*>(malloc(sizeof(int32_t) * shape.size()));
-            for (size_t j = 0; j < shape.size(); j++) {
-                result[i].shape[j] = static_cast<int32_t>(shape[j]);
-            }
+            ov::PartialShape ps = input.get_partial_shape();
+            result[i].shape_size = static_cast<int32_t>(ps.size());
+            result[i].shape = static_cast<int32_t*>(malloc(sizeof(int32_t) * ps.size()));
+            fill_shape_from_partial(ps, result[i].shape, &result[i].shape_size);
             
             result[i].data_type = element_type_to_int32(input.get_element_type());
         }
@@ -457,12 +464,10 @@ OpenVINOPortInfo* openvino_model_get_outputs(OpenVINOModel model, int32_t* count
             const auto& output = outputs[i];
             result[i].name = strdup(output.get_any_name().c_str());
             
-            const auto& shape = output.get_shape();
-            result[i].shape_size = static_cast<int32_t>(shape.size());
-            result[i].shape = static_cast<int32_t*>(malloc(sizeof(int32_t) * shape.size()));
-            for (size_t j = 0; j < shape.size(); j++) {
-                result[i].shape[j] = static_cast<int32_t>(shape[j]);
-            }
+            ov::PartialShape ps = output.get_partial_shape();
+            result[i].shape_size = static_cast<int32_t>(ps.size());
+            result[i].shape = static_cast<int32_t*>(malloc(sizeof(int32_t) * ps.size()));
+            fill_shape_from_partial(ps, result[i].shape, &result[i].shape_size);
             
             result[i].data_type = element_type_to_int32(output.get_element_type());
         }

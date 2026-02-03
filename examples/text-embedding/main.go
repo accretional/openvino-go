@@ -189,8 +189,8 @@ func prepareTextInput(text string, inputs []openvino.PortInfo) ([]int64, []int64
 
 	if len(inputs) > 0 {
 		inputShape := inputs[0].Shape
-		if len(inputShape) >= 2 {
-			maxSeqLen = int(inputShape[1])
+		if len(inputShape) >= 2 && inputShape[1] > 0 {
+			maxSeqLen = int(inputShape[1]) // -1 means dynamic; keep default
 		}
 	}
 
@@ -302,7 +302,23 @@ func getOutputTensor(request *openvino.InferRequest, outputs []openvino.PortInfo
 	if len(outputs) == 0 {
 		return nil, fmt.Errorf("no outputs found in model")
 	}
-
+	// Prefer sentence_embedding (pooled), then token_embeddings; fall back to first output
+	for _, out := range outputs {
+		if strings.Contains(strings.ToLower(out.Name), "sentence_embedding") {
+			t, err := request.GetOutputTensor(out.Name)
+			if err == nil {
+				return t, nil
+			}
+		}
+	}
+	for _, out := range outputs {
+		if strings.Contains(strings.ToLower(out.Name), "token_embeddings") {
+			t, err := request.GetOutputTensor(out.Name)
+			if err == nil {
+				return t, nil
+			}
+		}
+	}
 	outputTensor, err := request.GetOutputTensor(outputs[0].Name)
 	if err != nil {
 		outputTensor, err = request.GetOutputTensorByIndex(0)
@@ -310,7 +326,6 @@ func getOutputTensor(request *openvino.InferRequest, outputs []openvino.PortInfo
 			return nil, fmt.Errorf("failed to get output tensor: %w", err)
 		}
 	}
-
 	return outputTensor, nil
 }
 

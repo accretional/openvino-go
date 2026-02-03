@@ -16,13 +16,23 @@ You can download and convert a sentence-transformers model:
 python3 << EOF
 from sentence_transformers import SentenceTransformer
 import openvino as ov
+import torch
 
 # Load a sentence transformer model
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-# Convert to OpenVINO IR
-ov_model = ov.convert_model(model, input=[1, 512])
-ov.save_model(ov_model, "all-MiniLM-L6-v2.xml")
+# Trace with a concrete example input. forward() expects one positional arg: the input dict.
+# Pass it as a tuple of one element so the tracer calls forward(input_dict), not forward(*tensors).
+batch_size, seq_len = 1, 256
+input_dict = {
+    "input_ids": torch.randint(0, 30522, (batch_size, seq_len)),
+    "attention_mask": torch.ones(batch_size, seq_len, dtype=torch.long),
+    "token_type_ids": torch.zeros(batch_size, seq_len, dtype=torch.long),
+}
+example_input = (input_dict,)
+
+ov_model = ov.convert_model(model, example_input=example_input)
+ov.save_model(ov_model, "models/all-MiniLM-L6-v2.xml")
 EOF
 ```
 
