@@ -76,6 +76,21 @@ go run examples/text-embedding/main.go model.xml "Your text here"
 
 See `examples/text-embedding/README.md` for more details on getting and using embedding models.
 
+## Troubleshooting
+
+### `go: creating work dir: ... permission denied` or `stat /tmp: no such file or directory`
+
+Go uses `/tmp` (or `GOTMPDIR`) for its build cache when compiling. If `/tmp` does not exist or your user cannot write to it (e.g. in some containers or restricted environments), any `go run` or `go build` can fail with one of these errors.
+
+**Fix:** Use a writable directory for Go’s temp files:
+
+```bash
+mkdir -p "$HOME/.tmp"
+export TMPDIR=$HOME/.tmp GOTMPDIR=$HOME/.tmp
+```
+
+Then run your `go run` or `go test` as usual. To make this persistent, add the `export` lines to `~/.bashrc` or `~/.profile`.
+
 ## Status
 
 **Early Development** - This project is in active development. 
