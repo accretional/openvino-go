@@ -54,14 +54,27 @@ export OPENVINO_TEST_MODEL=models/test_model.xml
 go test ./... -v
 ```
 
-## Example
+## Examples
 
-From the repo root (after Setup and Build):
+### Hello World Example
+
+Basic inference pipeline demonstration:
 
 ```bash
 scripts/download-model.sh
 go run examples/hello-world/main.go models/test_model.xml
 ```
+
+### Text Embedding Example
+
+Text embedding inference with transformer models:
+
+```bash
+# Requires a text embedding model
+go run examples/text-embedding/main.go model.xml "Your text here"
+```
+
+See `examples/text-embedding/README.md` for more details on getting and using embedding models.
 
 ## Status
 
