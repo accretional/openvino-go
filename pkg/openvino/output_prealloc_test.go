@@ -4,14 +4,6 @@ import (
 	"testing"
 )
 
-func shapeToInt64(s []int32) []int64 {
-	out := make([]int64, len(s))
-	for i, v := range s {
-		out[i] = int64(v)
-	}
-	return out
-}
-
 func TestInferRequest_SetOutputTensor(t *testing.T) {
 	core := coreAvailable(t)
 	defer core.Close()

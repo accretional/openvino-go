@@ -7,7 +7,7 @@ package cgo
 #include "core_wrapper.h"
 #include <stdlib.h>
 
-extern void openvinoGoCallbackBridge(void* user_data, int32_t has_error, const char* error_msg);
+extern void openvinoGoCallbackBridge(void* user_data, int32_t has_error, char* error_msg);
 */
 import "C"
 import (

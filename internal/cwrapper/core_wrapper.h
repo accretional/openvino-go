@@ -161,7 +161,7 @@ int32_t openvino_infer_request_set_tensor_unified(
     OpenVINOError* error
 );
 
-typedef void (*OpenVINOCallback)(void* user_data, int32_t has_error, const char* error_msg);
+typedef void (*OpenVINOCallback)(void* user_data, int32_t has_error, char* error_msg);
 
 int32_t openvino_infer_request_set_callback(
     OpenVINOInferRequest request,
