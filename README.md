@@ -2,21 +2,20 @@
 
 Go bindings for Intel OpenVINO Runtime.
 
-## Install
+For now, the supported way to use this project is: **clone the repo, build it, then use it from here.** We are not yet promoting use as a standalone Go package (`go get`) until the build and distribution story is streamlined.
 
-This module uses **CGO** and requires the **Intel OpenVINO Runtime** and a C++ toolchain to build. Add it to your project with:
+## How to use (for now)
 
-```bash
-go get github.com/accretional/openvino-go/pkg/openvino@latest
-```
+1. **Clone** the repository.
+2. **Setup** – run `scripts/setup.sh` to install OpenVINO and build tools.
+3. **Build** – run `scripts/build.sh` to build the C++ wrapper.
+4. **Use** – run the example, run tests, or use the package from another Go module by adding a `replace` in your `go.mod` pointing at this clone:
 
-Import in your code:
+   ```go
+   replace github.com/accretional/openvino-go => /path/to/openvino-go
+   ```
 
-```go
-import "github.com/accretional/openvino-go/pkg/openvino"
-```
-
-Make sure CGO is enabled when building (`CGO_ENABLED=1`, which is the default when cgo is available). Your build environment must have OpenVINO installed and the C++ wrapper built (See Setup and Build below).
+   Then in your code: `import "github.com/accretional/openvino-go/pkg/openvino"` and build with `CGO_ENABLED=1`.
 
 ## Prerequisites
 
@@ -41,15 +40,23 @@ scripts/build.sh
 
 ## Test
 
-Run all tests:
+From the repo root (after Setup and Build):
 
 ```bash
-scripts/download-model.sh   # Generates a small model (requires: pip install openvino)
+go test ./...
+```
+
+To run tests that need a model (compile/inference), generate one and set `OPENVINO_TEST_MODEL`:
+
+```bash
+scripts/download-model.sh   # requires: pip install openvino
 export OPENVINO_TEST_MODEL=models/test_model.xml
 go test ./... -v
 ```
 
 ## Example
+
+From the repo root (after Setup and Build):
 
 ```bash
 scripts/download-model.sh
