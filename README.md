@@ -78,7 +78,7 @@ See `examples/text-embedding/README.md` for more details on getting and using em
 
 ## Troubleshooting
 
-### `go: creating work dir: ... permission denied` or `stat /tmp: no such file or directory`
+`go: creating work dir: ... permission denied` or `stat /tmp: no such file or directory`
 
 Go uses `/tmp` (or `GOTMPDIR`) for its build cache when compiling. If `/tmp` does not exist or your user cannot write to it (e.g. in some containers or restricted environments), any `go run` or `go build` can fail with one of these errors.
 
