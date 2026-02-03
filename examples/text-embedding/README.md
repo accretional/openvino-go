@@ -42,13 +42,13 @@ Or download a pre-converted model from the [OpenVINO Model Zoo](https://github.c
 
 ```bash
 cd /path/to/openvino-go
-go run examples/text-embedding/main.go <model.xml|model.onnx> "<text>"
+go run examples/text-embedding/main.go <path_to_model.xml|path_to_model.onnx> "<text>"
 ```
 
 ### Example
 
 ```bash
-go run examples/text-embedding/main.go model.xml "Hello, world! This is a test."
+go run examples/text-embedding/main.go models/model.xml "Hello, world! This is a test."
 ```
 
 ## Input Format
@@ -57,38 +57,11 @@ The example expects:
 - **Model path**: Path to an OpenVINO IR (`.xml`) or ONNX (`.onnx`) model file
 - **Text**: The text string to embed (can contain spaces, use quotes)
 
-## Model Requirements
-
-The model should:
-- Accept text token IDs as input (typically `input_ids`)
-- Optionally accept `attention_mask` and `token_type_ids`
-- Output embeddings (typically shape `[batch, sequence, embedding_dim]` or `[batch, embedding_dim]`)
-
 Common compatible models:
 - `all-MiniLM-L6-v2` (384 dimensions)
 - `all-mpnet-base-v2` (768 dimensions)
 - `paraphrase-MiniLM-L6-v2` (384 dimensions)
 - Any BERT-based sentence transformer model
-
-## Tokenization Note
-
-⚠️ **Important**: This example uses a simplified tokenization approach for demonstration purposes. 
-
-For production use, you should:
-1. Use the model's actual tokenizer (e.g., HuggingFace tokenizer)
-2. Load the tokenizer configuration from the model directory
-3. Use proper subword tokenization (WordPiece, BPE, etc.)
-
-The example includes a simple hash-based tokenization that works for demonstration but may not produce accurate results with real models.
-
-## Output
-
-The example outputs:
-- Model I/O information
-- Tokenization details
-- Inference timing
-- Embedding vector (first 10 values)
-- Embedding statistics (mean, min, max, L2 norm)
 
 ## Example Output
 
@@ -147,12 +120,3 @@ Embedding statistics:
 
 Text embedding example completed successfully!
 ```
-
-## Next Steps
-
-To use this in production:
-1. Integrate a proper tokenizer (e.g., `github.com/sugarme/tokenizer`)
-2. Load tokenizer configuration from model directory
-3. Handle batch processing for multiple texts
-4. Add caching for compiled models
-5. Implement async inference for better throughput
