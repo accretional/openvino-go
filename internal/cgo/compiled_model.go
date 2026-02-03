@@ -88,3 +88,22 @@ func (cm *CompiledModel) Destroy() {
 		C.openvino_compiled_model_destroy(C.OpenVINOCompiledModel(unsafe.Pointer(cm)))
 	}
 }
+
+func (cm *CompiledModel) ReleaseMemory() error {
+	var cErr C.OpenVINOError
+	result := C.openvino_compiled_model_release_memory(
+		C.OpenVINOCompiledModel(unsafe.Pointer(cm)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}

@@ -26,10 +26,18 @@ static void set_error_from_exception(OpenVINOError* error, const std::exception&
 
 static ov::element::Type get_element_type(int32_t data_type) {
     switch (data_type) {
-        case 0: return ov::element::f32;  // float32
-        case 1: return ov::element::i64;  // int64
-        case 2: return ov::element::i32;  // int32
-        case 3: return ov::element::u8;   // uint8
+        case 0: return ov::element::f32;      // float32
+        case 1: return ov::element::i64;       // int64
+        case 2: return ov::element::i32;       // int32
+        case 3: return ov::element::u8;        // uint8
+        case 4: return ov::element::f64;       // float64
+        case 5: return ov::element::i8;        // int8
+        case 6: return ov::element::u16;        // uint16
+        case 7: return ov::element::i16;        // int16
+        case 8: return ov::element::u32;        // uint32
+        case 9: return ov::element::u64;        // uint64
+        case 10: return ov::element::f16;      // float16
+        case 11: return ov::element::bf16;      // bfloat16
         default: return ov::element::f32;
     }
 }
@@ -209,6 +217,20 @@ void openvino_compiled_model_destroy(OpenVINOCompiledModel compiled_model) {
     }
 }
 
+int32_t openvino_compiled_model_release_memory(
+    OpenVINOCompiledModel compiled_model,
+    OpenVINOError* error
+) {
+    try {
+        ov::CompiledModel* cm = reinterpret_cast<ov::CompiledModel*>(compiled_model);
+        cm->release_memory();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
 OpenVINOInferRequest openvino_compiled_model_create_infer_request(
     OpenVINOCompiledModel compiled_model,
     OpenVINOError* error
@@ -304,6 +326,102 @@ int32_t openvino_infer_request_infer(OpenVINOInferRequest request, OpenVINOError
     try {
         ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
         req->infer();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_set_tensors(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOTensor* tensors,
+    int32_t tensor_count,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        
+        std::vector<ov::Tensor> ov_tensors;
+        ov_tensors.reserve(tensor_count);
+        
+        for (int32_t i = 0; i < tensor_count; i++) {
+            ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensors[i]);
+            ov_tensors.push_back(*t);
+        }
+        
+        req->set_tensors(name, ov_tensors);
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_set_tensors_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    OpenVINOTensor* tensors,
+    int32_t tensor_count,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        
+        std::vector<ov::Tensor> ov_tensors;
+        ov_tensors.reserve(tensor_count);
+        
+        for (int32_t i = 0; i < tensor_count; i++) {
+            ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensors[i]);
+            ov_tensors.push_back(*t);
+        }
+        
+        // Get the input port by index
+        auto inputs = req->get_compiled_model().inputs();
+        if (index < 0 || static_cast<size_t>(index) >= inputs.size()) {
+            set_error(error, -1, "Invalid input index");
+            return -1;
+        }
+        
+        req->set_tensors(inputs[index], ov_tensors);
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_set_output_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOTensor tensor,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        
+        // Use set_tensor which works for both input and output by name
+        req->set_tensor(name, *t);
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_set_output_tensor_by_index(
+    OpenVINOInferRequest request,
+    int32_t index,
+    OpenVINOTensor tensor,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        
+        req->set_output_tensor(static_cast<size_t>(index), *t);
         return 0;
     } catch (const std::exception& e) {
         set_error_from_exception(error, e);
@@ -468,10 +586,234 @@ void openvino_tensor_destroy(OpenVINOTensor tensor) {
     }
 }
 
+OpenVINOTensor openvino_tensor_new(
+    int32_t data_type,
+    int32_t* shape,
+    int32_t shape_size,
+    OpenVINOError* error
+) {
+    try {
+        ov::element::Type element_type = get_element_type(data_type);
+        
+        ov::Shape ov_shape;
+        for (int32_t i = 0; i < shape_size; i++) {
+            ov_shape.push_back(static_cast<size_t>(shape[i]));
+        }
+        
+        ov::Tensor* tensor = new ov::Tensor(element_type, ov_shape);
+        return reinterpret_cast<OpenVINOTensor>(tensor);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+OpenVINOTensor openvino_tensor_new_with_data(
+    int32_t data_type,
+    int32_t* shape,
+    int32_t shape_size,
+    const void* data,
+    OpenVINOError* error
+) {
+    try {
+        ov::element::Type element_type = get_element_type(data_type);
+        
+        ov::Shape ov_shape;
+        for (int32_t i = 0; i < shape_size; i++) {
+            ov_shape.push_back(static_cast<size_t>(shape[i]));
+        }
+        
+        size_t total_elements = calculate_total_elements(shape, shape_size);
+        size_t data_size = total_elements * element_type.size();
+        
+        ov::Tensor* tensor = new ov::Tensor(element_type, ov_shape);
+        std::memcpy(tensor->data(), data, data_size);
+        
+        return reinterpret_cast<OpenVINOTensor>(tensor);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+int64_t openvino_tensor_get_size(OpenVINOTensor tensor, OpenVINOError* error) {
+    try {
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        return static_cast<int64_t>(t->get_size());
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int64_t openvino_tensor_get_byte_size(OpenVINOTensor tensor, OpenVINOError* error) {
+    try {
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        return static_cast<int64_t>(t->get_byte_size());
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_tensor_get_element_type(OpenVINOTensor tensor, OpenVINOError* error) {
+    try {
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        ov::element::Type type = t->get_element_type();
+        return element_type_to_int32(type);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_tensor_set_shape(OpenVINOTensor tensor, int32_t* shape, int32_t shape_size, OpenVINOError* error) {
+    try {
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        
+        ov::Shape ov_shape;
+        for (int32_t i = 0; i < shape_size; i++) {
+            ov_shape.push_back(static_cast<size_t>(shape[i]));
+        }
+        
+        t->set_shape(ov_shape);
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
 void openvino_error_free(OpenVINOError* error) {
     if (error && error->message) {
         free(error->message);
         error->message = nullptr;
+    }
+}
+
+int32_t openvino_infer_request_query_state(
+    OpenVINOInferRequest request,
+    OpenVINOVariableState** states,
+    int32_t* state_count,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        std::vector<ov::VariableState> variable_states = req->query_state();
+        
+        *state_count = static_cast<int32_t>(variable_states.size());
+        
+        if (variable_states.empty()) {
+            *states = nullptr;
+            return 0;
+        }
+        
+        // Allocate array of VariableState pointers
+        OpenVINOVariableState* result = static_cast<OpenVINOVariableState*>(
+            malloc(sizeof(OpenVINOVariableState) * variable_states.size())
+        );
+        
+        // Create new VariableState objects and store pointers
+        for (size_t i = 0; i < variable_states.size(); i++) {
+            ov::VariableState* vs = new ov::VariableState(std::move(variable_states[i]));
+            result[i] = reinterpret_cast<OpenVINOVariableState>(vs);
+        }
+        
+        *states = result;
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        *state_count = 0;
+        *states = nullptr;
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_reset_state(
+    OpenVINOInferRequest request,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        req->reset_state();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+void openvino_variable_state_destroy(OpenVINOVariableState state) {
+    if (state) {
+        delete reinterpret_cast<ov::VariableState*>(state);
+    }
+}
+
+const char* openvino_variable_state_get_name(
+    OpenVINOVariableState state,
+    OpenVINOError* error
+) {
+    try {
+        ov::VariableState* vs = reinterpret_cast<ov::VariableState*>(state);
+        std::string name = vs->get_name();
+        return strdup(name.c_str());
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+OpenVINOTensor openvino_variable_state_get_state(
+    OpenVINOVariableState state,
+    OpenVINOError* error
+) {
+    try {
+        ov::VariableState* vs = reinterpret_cast<ov::VariableState*>(state);
+        ov::Tensor tensor = vs->get_state();
+        
+        // Create a new Tensor object to return
+        ov::Tensor* tensor_ptr = new ov::Tensor(std::move(tensor));
+        return reinterpret_cast<OpenVINOTensor>(tensor_ptr);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+int32_t openvino_variable_state_set_state(
+    OpenVINOVariableState state,
+    OpenVINOTensor tensor,
+    OpenVINOError* error
+) {
+    try {
+        ov::VariableState* vs = reinterpret_cast<ov::VariableState*>(state);
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        
+        vs->set_state(*t);
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_variable_state_reset(
+    OpenVINOVariableState state,
+    OpenVINOError* error
+) {
+    try {
+        ov::VariableState* vs = reinterpret_cast<ov::VariableState*>(state);
+        vs->reset();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+void openvino_variable_state_free_name(const char* name) {
+    if (name) {
+        free(const_cast<char*>(name));
     }
 }
 
@@ -480,6 +822,14 @@ static int32_t element_type_to_int32(ov::element::Type type) {
     if (type == ov::element::i64) return 1;
     if (type == ov::element::i32) return 2;
     if (type == ov::element::u8) return 3;
+    if (type == ov::element::f64) return 4;
+    if (type == ov::element::i8) return 5;
+    if (type == ov::element::u16) return 6;
+    if (type == ov::element::i16) return 7;
+    if (type == ov::element::u32) return 8;
+    if (type == ov::element::u64) return 9;
+    if (type == ov::element::f16) return 10;
+    if (type == ov::element::bf16) return 11;
     return 0; // Default to float32
 }
 

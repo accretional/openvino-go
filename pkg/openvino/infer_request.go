@@ -2,6 +2,7 @@ package openvino
 
 import (
 	"context"
+	"errors"
 
 	"github.com/accretional/openvino-go/internal/cgo"
 )
@@ -122,4 +123,40 @@ func (ir *InferRequest) GetInputTensorByIndex(index int32) (*Tensor, error) {
 		return nil, err
 	}
 	return &Tensor{tensor: tensor}, nil
+}
+
+// SetInputTensors sets a batch of input tensors by name.
+// Requires model with batch dimension; number of tensors must match batch size.
+func (ir *InferRequest) SetInputTensors(name string, tensors []*Tensor) error {
+	cgoTensors := make([]*cgo.Tensor, len(tensors))
+	for i, t := range tensors {
+		if t == nil {
+			return errors.New("tensor cannot be nil")
+		}
+		cgoTensors[i] = t.tensor
+	}
+	return ir.request.SetInputTensors(name, cgoTensors)
+}
+
+// SetInputTensorsByIndex sets a batch of input tensors by index.
+// Requires model with batch dimension; number of tensors must match batch size.
+func (ir *InferRequest) SetInputTensorsByIndex(index int32, tensors []*Tensor) error {
+	cgoTensors := make([]*cgo.Tensor, len(tensors))
+	for i, t := range tensors {
+		if t == nil {
+			return errors.New("tensor cannot be nil")
+		}
+		cgoTensors[i] = t.tensor
+	}
+	return ir.request.SetInputTensorsByIndex(index, cgoTensors)
+}
+
+// SetOutputTensor pre-allocates an output tensor by name for zero-copy output.
+func (ir *InferRequest) SetOutputTensor(name string, tensor *Tensor) error {
+	return ir.request.SetOutputTensor(name, tensor.tensor)
+}
+
+// SetOutputTensorByIndex pre-allocates an output tensor by index for zero-copy output.
+func (ir *InferRequest) SetOutputTensorByIndex(index int32, tensor *Tensor) error {
+	return ir.request.SetOutputTensorByIndex(index, tensor.tensor)
 }

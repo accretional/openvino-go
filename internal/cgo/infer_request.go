@@ -62,6 +62,18 @@ func (ir *InferRequest) SetInputTensor(name string, data interface{}, shape []in
 		dataPtr = unsafe.Pointer(&v[0])
 	case []uint8:
 		dataPtr = unsafe.Pointer(&v[0])
+	case []float64:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int8:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint16:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int16:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint32:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint64:
+		dataPtr = unsafe.Pointer(&v[0])
 	default:
 		return errors.New("unsupported data type")
 	}
@@ -105,6 +117,18 @@ func (ir *InferRequest) SetInputTensorByIndex(index int32, data interface{}, sha
 	case []int32:
 		dataPtr = unsafe.Pointer(&v[0])
 	case []uint8:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []float64:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int8:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint16:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []int16:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint32:
+		dataPtr = unsafe.Pointer(&v[0])
+	case []uint64:
 		dataPtr = unsafe.Pointer(&v[0])
 	default:
 		return errors.New("unsupported data type")
@@ -243,4 +267,128 @@ func (ir *InferRequest) GetInputTensorByIndex(index int32) (*Tensor, error) {
 	}
 
 	return (*Tensor)(unsafe.Pointer(tensor)), nil
+}
+
+func (ir *InferRequest) SetInputTensors(name string, tensors []*Tensor) error {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	if len(tensors) == 0 {
+		return errors.New("tensor slice cannot be empty")
+	}
+
+	cTensors := make([]C.OpenVINOTensor, len(tensors))
+	for i, t := range tensors {
+		if t == nil {
+			return errors.New("tensor cannot be nil")
+		}
+		cTensors[i] = C.OpenVINOTensor(unsafe.Pointer(t))
+	}
+
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_set_tensors(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		cName,
+		&cTensors[0],
+		C.int32_t(len(tensors)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+func (ir *InferRequest) SetInputTensorsByIndex(index int32, tensors []*Tensor) error {
+	if len(tensors) == 0 {
+		return errors.New("tensor slice cannot be empty")
+	}
+
+	cTensors := make([]C.OpenVINOTensor, len(tensors))
+	for i, t := range tensors {
+		if t == nil {
+			return errors.New("tensor cannot be nil")
+		}
+		cTensors[i] = C.OpenVINOTensor(unsafe.Pointer(t))
+	}
+
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_set_tensors_by_index(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		C.int32_t(index),
+		&cTensors[0],
+		C.int32_t(len(tensors)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+func (ir *InferRequest) SetOutputTensor(name string, tensor *Tensor) error {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	if tensor == nil {
+		return errors.New("tensor cannot be nil")
+	}
+
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_set_output_tensor(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		cName,
+		C.OpenVINOTensor(unsafe.Pointer(tensor)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+func (ir *InferRequest) SetOutputTensorByIndex(index int32, tensor *Tensor) error {
+	if tensor == nil {
+		return errors.New("tensor cannot be nil")
+	}
+
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_set_output_tensor_by_index(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		C.int32_t(index),
+		C.OpenVINOTensor(unsafe.Pointer(tensor)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
 }
