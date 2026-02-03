@@ -7,6 +7,9 @@ package cgo
 #include "core_wrapper.h"
 #include <stdlib.h>
 #include <stdint.h>
+
+// Forward declaration for Go callback bridge
+extern void openvinoGoCallbackBridge(void* user_data, int32_t has_error, const char* error_msg);
 */
 import "C"
 import (
@@ -224,6 +227,138 @@ func (ir *InferRequest) WaitFor(timeoutMs int64) (bool, error) {
 	// result: 0 = completed, 1 = timeout
 	completed := result == 0
 	return completed, nil
+}
+
+func (ir *InferRequest) Cancel() error {
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_cancel(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
+}
+
+func (ir *InferRequest) GetProfilingInfo() ([]ProfilingInfo, error) {
+	var infoCount C.int32_t
+	var infoPtr *C.OpenVINOProfilingInfo
+	var cErr C.OpenVINOError
+
+	result := C.openvino_infer_request_get_profiling_info(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		&infoPtr,
+		&infoCount,
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	if infoCount == 0 || infoPtr == nil {
+		return []ProfilingInfo{}, nil
+	}
+
+	defer C.openvino_profiling_info_free(infoPtr, infoCount)
+
+	infos := make([]ProfilingInfo, int(infoCount))
+	infoSlice := unsafe.Slice(infoPtr, int(infoCount))
+
+	for i := range infos {
+		cInfo := infoSlice[i]
+		infos[i] = ProfilingInfo{
+			Status:   ProfilingInfoStatus(cInfo.status),
+			RealTime: int64(cInfo.real_time_us),
+			CPUTime:  int64(cInfo.cpu_time_us),
+			NodeName: C.GoString(cInfo.node_name),
+			ExecType: C.GoString(cInfo.exec_type),
+			NodeType: C.GoString(cInfo.node_type),
+		}
+	}
+
+	return infos, nil
+}
+
+type ProfilingInfoStatus int32
+
+const (
+	ProfilingInfoStatusNotRun       ProfilingInfoStatus = 0
+	ProfilingInfoStatusOptimizedOut ProfilingInfoStatus = 1
+	ProfilingInfoStatusExecuted     ProfilingInfoStatus = 2
+)
+
+type ProfilingInfo struct {
+	Status   ProfilingInfoStatus
+	RealTime int64
+	CPUTime  int64
+	NodeName string
+	ExecType string
+	NodeType string
+}
+
+func (ir *InferRequest) GetTensor(name string) (*Tensor, error) {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	var cErr C.OpenVINOError
+	tensor := C.openvino_infer_request_get_tensor(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		cName,
+		&cErr,
+	)
+
+	if tensor == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	return (*Tensor)(unsafe.Pointer(tensor)), nil
+}
+
+func (ir *InferRequest) SetTensor(name string, tensor *Tensor) error {
+	cName := C.CString(name)
+	defer C.free(unsafe.Pointer(cName))
+
+	if tensor == nil {
+		return errors.New("tensor cannot be nil")
+	}
+
+	var cErr C.OpenVINOError
+	result := C.openvino_infer_request_set_tensor_unified(
+		C.OpenVINOInferRequest(unsafe.Pointer(ir)),
+		cName,
+		C.OpenVINOTensor(unsafe.Pointer(tensor)),
+		&cErr,
+	)
+
+	if result != 0 {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return err
+	}
+
+	return nil
 }
 
 func (ir *InferRequest) GetInputTensor(name string) (*Tensor, error) {

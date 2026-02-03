@@ -160,3 +160,24 @@ func (ir *InferRequest) SetOutputTensor(name string, tensor *Tensor) error {
 func (ir *InferRequest) SetOutputTensorByIndex(index int32, tensor *Tensor) error {
 	return ir.request.SetOutputTensorByIndex(index, tensor.tensor)
 }
+
+func (ir *InferRequest) Cancel() error {
+	return ir.request.Cancel()
+}
+
+func (ir *InferRequest) GetTensor(name string) (*Tensor, error) {
+	tensor, err := ir.request.GetTensor(name)
+	if err != nil {
+		return nil, err
+	}
+	return &Tensor{tensor: tensor}, nil
+}
+
+func (ir *InferRequest) SetTensor(name string, tensor *Tensor) error {
+	return ir.request.SetTensor(name, tensor.tensor)
+}
+
+// SetCallback sets a callback function that is called when async inference completes.
+func (ir *InferRequest) SetCallback(callback func(error)) error {
+	return ir.request.SetCallback(callback)
+}

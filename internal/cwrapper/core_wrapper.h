@@ -128,6 +128,50 @@ int32_t openvino_infer_request_start_async(OpenVINOInferRequest request, OpenVIN
 int32_t openvino_infer_request_wait(OpenVINOInferRequest request, OpenVINOError* error);
 int32_t openvino_infer_request_wait_for(OpenVINOInferRequest request, int64_t timeout_ms, OpenVINOError* error);
 
+int32_t openvino_infer_request_cancel(OpenVINOInferRequest request, OpenVINOError* error);
+
+typedef struct {
+    int32_t status;  // 0=NOT_RUN, 1=OPTIMIZED_OUT, 2=EXECUTED
+    int64_t real_time_us;
+    int64_t cpu_time_us;
+    char* node_name;
+    char* exec_type;
+    char* node_type;
+} OpenVINOProfilingInfo;
+
+int32_t openvino_infer_request_get_profiling_info(
+    OpenVINOInferRequest request,
+    OpenVINOProfilingInfo** info,
+    int32_t* info_count,
+    OpenVINOError* error
+);
+
+void openvino_profiling_info_free(OpenVINOProfilingInfo* info, int32_t count);
+
+OpenVINOTensor openvino_infer_request_get_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOError* error
+);
+
+int32_t openvino_infer_request_set_tensor_unified(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOTensor tensor,
+    OpenVINOError* error
+);
+
+typedef void (*OpenVINOCallback)(void* user_data, int32_t has_error, const char* error_msg);
+
+int32_t openvino_infer_request_set_callback(
+    OpenVINOInferRequest request,
+    OpenVINOCallback callback,
+    void* user_data,
+    OpenVINOError* error
+);
+
+void openvino_infer_request_clear_callback(OpenVINOInferRequest request);
+
 // Input tensor retrieval
 OpenVINOTensor openvino_infer_request_get_input_tensor(
     OpenVINOInferRequest request,

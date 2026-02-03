@@ -9,6 +9,7 @@
 #include <sstream>
 #include <map>
 #include <chrono>
+#include <mutex>
 
 static void set_error(OpenVINOError* error, int32_t code, const char* message) {
     if (error) {
@@ -473,6 +474,203 @@ int32_t openvino_infer_request_wait_for(OpenVINOInferRequest request, int64_t ti
         ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
         bool completed = req->wait_for(std::chrono::milliseconds(timeout_ms));
         return completed ? 0 : 1; // 0 = completed, 1 = timeout
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_cancel(OpenVINOInferRequest request, OpenVINOError* error) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        req->cancel();
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+int32_t openvino_infer_request_get_profiling_info(
+    OpenVINOInferRequest request,
+    OpenVINOProfilingInfo** info,
+    int32_t* info_count,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        std::vector<ov::ProfilingInfo> profiling_info = req->get_profiling_info();
+        
+        *info_count = static_cast<int32_t>(profiling_info.size());
+        
+        if (profiling_info.empty()) {
+            *info = nullptr;
+            return 0;
+        }
+        
+        OpenVINOProfilingInfo* result = static_cast<OpenVINOProfilingInfo*>(
+            malloc(sizeof(OpenVINOProfilingInfo) * profiling_info.size())
+        );
+        
+        for (size_t i = 0; i < profiling_info.size(); i++) {
+            const auto& pi = profiling_info[i];
+            
+            int32_t status = 0;
+            if (pi.status == ov::ProfilingInfo::Status::EXECUTED) {
+                status = 2;
+            } else if (pi.status == ov::ProfilingInfo::Status::OPTIMIZED_OUT) {
+                status = 1;
+            }
+            
+            result[i].status = status;
+            result[i].real_time_us = static_cast<int64_t>(pi.real_time.count());
+            result[i].cpu_time_us = static_cast<int64_t>(pi.cpu_time.count());
+            result[i].node_name = strdup(pi.node_name.c_str());
+            result[i].exec_type = strdup(pi.exec_type.c_str());
+            result[i].node_type = strdup(pi.node_type.c_str());
+        }
+        
+        *info = result;
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        *info_count = 0;
+        *info = nullptr;
+        return -1;
+    }
+}
+
+void openvino_profiling_info_free(OpenVINOProfilingInfo* info, int32_t count) {
+    if (info == nullptr) {
+        return;
+    }
+    
+    for (int32_t i = 0; i < count; i++) {
+        if (info[i].node_name) {
+            free(info[i].node_name);
+        }
+        if (info[i].exec_type) {
+            free(info[i].exec_type);
+        }
+        if (info[i].node_type) {
+            free(info[i].node_type);
+        }
+    }
+    
+    free(info);
+}
+
+struct CallbackData {
+    OpenVINOCallback callback;
+    void* user_data;
+};
+
+static std::map<OpenVINOInferRequest, CallbackData*> callback_registry;
+static std::mutex callback_mutex;
+
+int32_t openvino_infer_request_set_callback(
+    OpenVINOInferRequest request,
+    OpenVINOCallback callback,
+    void* user_data,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        
+        std::lock_guard<std::mutex> lock(callback_mutex);
+        
+        auto it = callback_registry.find(request);
+        if (it != callback_registry.end()) {
+            delete it->second;
+            callback_registry.erase(it);
+        }
+        
+        if (callback == nullptr) {
+            req->set_callback([](std::exception_ptr) {});
+            return 0;
+        }
+        
+        CallbackData* cb_data = new CallbackData{callback, user_data};
+        callback_registry[request] = cb_data;
+        req->set_callback([cb_data](std::exception_ptr eptr) {
+            int32_t has_error = 0;
+            const char* error_msg = nullptr;
+            char* error_msg_copy = nullptr;
+            
+            if (eptr) {
+                has_error = 1;
+                try {
+                    std::rethrow_exception(eptr);
+                } catch (const std::exception& e) {
+                    std::string msg = e.what();
+                    error_msg_copy = strdup(msg.c_str());
+                    error_msg = error_msg_copy;
+                } catch (...) {
+                    error_msg_copy = strdup("Unknown exception");
+                    error_msg = error_msg_copy;
+                }
+            }
+            
+            if (cb_data && cb_data->callback) {
+                cb_data->callback(cb_data->user_data, has_error, error_msg);
+            }
+            
+            if (error_msg_copy) {
+                free(error_msg_copy);
+            }
+        });
+        
+        return 0;
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return -1;
+    }
+}
+
+void openvino_infer_request_clear_callback(OpenVINOInferRequest request) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        req->set_callback([](std::exception_ptr) {});
+        
+        std::lock_guard<std::mutex> lock(callback_mutex);
+        auto it = callback_registry.find(request);
+        if (it != callback_registry.end()) {
+            delete it->second;
+            callback_registry.erase(it);
+        }
+    } catch (...) {
+    }
+}
+
+OpenVINOTensor openvino_infer_request_get_tensor(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        ov::Tensor tensor = req->get_tensor(name);
+        
+        ov::Tensor* tensor_ptr = new ov::Tensor(std::move(tensor));
+        return reinterpret_cast<OpenVINOTensor>(tensor_ptr);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
+int32_t openvino_infer_request_set_tensor_unified(
+    OpenVINOInferRequest request,
+    const char* name,
+    OpenVINOTensor tensor,
+    OpenVINOError* error
+) {
+    try {
+        ov::InferRequest* req = reinterpret_cast<ov::InferRequest*>(request);
+        ov::Tensor* t = reinterpret_cast<ov::Tensor*>(tensor);
+        
+        req->set_tensor(name, *t);
+        return 0;
     } catch (const std::exception& e) {
         set_error_from_exception(error, e);
         return -1;
