@@ -1,8 +1,8 @@
 package cgo
 
 /*
-#cgo CFLAGS: -I${SRCDIR}/../cwrapper
-#cgo LDFLAGS: -L${SRCDIR}/../cwrapper -Wl,-rpath,${SRCDIR}/../cwrapper -lopenvino_wrapper -lopenvino
+#cgo CXXFLAGS: -std=c++17 -O2 -Wall -Wno-deprecated-declarations
+#cgo LDFLAGS: -lopenvino
 
 #include "core_wrapper.h"
 #include <stdlib.h>

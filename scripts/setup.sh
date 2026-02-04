@@ -66,4 +66,4 @@ else
     echo "==> OpenVINO ${OPENVINO_VERSION} installed"
 fi
 
-echo "==> Setup complete. Run scripts/build.sh next."
+echo "==> Setup complete. You can now run 'go build ./...'."
