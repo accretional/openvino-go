@@ -594,7 +594,7 @@ int32_t openvino_infer_request_set_callback(
         callback_registry[request] = cb_data;
         req->set_callback([cb_data](std::exception_ptr eptr) {
             int32_t has_error = 0;
-            const char* error_msg = nullptr;
+            char* error_msg = nullptr;
             char* error_msg_copy = nullptr;
             
             if (eptr) {
