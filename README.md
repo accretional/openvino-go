@@ -27,7 +27,7 @@ curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODU
 echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu24 main" \
   | sudo tee /etc/apt/sources.list.d/intel-openvino.list
 
-sudo apt-get update && sudo apt-get install -y openvino-2025.4.0
+sudo apt-get update && sudo apt-get install -y openvino
 ```
 
 For other install methods, see the [OpenVINO install guide](https://docs.openvino.ai/2025/get-started/install-openvino.html).

@@ -33,23 +33,17 @@ else
     UBUNTU_VER=$(. /etc/os-release && echo "$VERSION_ID" | cut -d. -f1)
     echo "==> Detected Ubuntu ${UBUNTU_VER}"
 
-    # Pick compatible version and repo codename
+    # Pick repo codename
     case "$UBUNTU_VER" in
-        24)
-            APT_CODENAME="ubuntu24"
-            OPENVINO_VERSION="${OPENVINO_VERSION:-2024.6.0}"
-            ;;
-        22)
-            APT_CODENAME="ubuntu22"
-            OPENVINO_VERSION="${OPENVINO_VERSION:-2024.4.0}"
-            ;;
+        24) APT_CODENAME="ubuntu24" ;;
+        22) APT_CODENAME="ubuntu22" ;;
         *)
             echo "Error: Unsupported Ubuntu version ${UBUNTU_VER}. Need 22.04 or 24.04." >&2
             exit 1
             ;;
     esac
 
-    echo "==> Installing OpenVINO ${OPENVINO_VERSION} (${APT_CODENAME})..."
+    echo "==> Installing OpenVINO (${APT_CODENAME})..."
 
     sudo apt-get update
     sudo apt-get install -y gnupg ca-certificates
@@ -57,13 +51,13 @@ else
     # Add Intel APT repository
     curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
         | sudo gpg --dearmor -o /usr/share/keyrings/intel-openvino.gpg
-    echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2024 ${APT_CODENAME} main" \
+    echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2025 ${APT_CODENAME} main" \
         | sudo tee /etc/apt/sources.list.d/intel-openvino.list
 
     sudo apt-get update
-    sudo apt-get install -y "openvino-${OPENVINO_VERSION}"
+    sudo apt-get install -y openvino
 
-    echo "==> OpenVINO ${OPENVINO_VERSION} installed"
+    echo "==> OpenVINO installed"
 fi
 
 echo "==> Setup complete. You can now run 'go build ./...'."

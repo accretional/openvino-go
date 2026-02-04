@@ -24,16 +24,16 @@ jobs:
           sudo apt-get install -y g++ curl gnupg ca-certificates
           curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
             | sudo gpg --dearmor -o /usr/share/keyrings/intel-openvino.gpg
-          echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2024 ubuntu22 main" \
+          echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2025 ubuntu22 main" \
             | sudo tee /etc/apt/sources.list.d/intel-openvino.list
           sudo apt-get update
-          sudo apt-get install -y openvino-2024.4.0
+          sudo apt-get install -y openvino
 
-      - name: Build C++ wrapper
-        run: scripts/build.sh
+      - name: Build
+        run: go build ./...
 
-      - name: Tidy Go module
-        run: go mod tidy
+      - name: Vet
+        run: go vet ./...
 
-      - name: Run tests
+      - name: Test
         run: go test ./... -v -count=1
