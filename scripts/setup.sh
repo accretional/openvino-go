@@ -16,6 +16,15 @@ if ! command -v curl &>/dev/null; then
     sudo apt-get update && sudo apt-get install -y curl
 fi
 
+if ! command -v go &>/dev/null; then
+    echo "==> Installing Go..."
+    GO_VERSION="${GO_VERSION:-1.25.7}"
+    wget -q "https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz" -O /tmp/go.tar.gz
+    sudo tar -C /usr/local -xzf /tmp/go.tar.gz
+    rm /tmp/go.tar.gz
+    export PATH=$PATH:/usr/local/go/bin
+fi
+
 # Install OpenVINO if not already present
 if [ -f /usr/include/openvino/openvino.hpp ]; then
     echo "==> OpenVINO already installed"
