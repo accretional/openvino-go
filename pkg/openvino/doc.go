@@ -5,7 +5,7 @@
 // applications to leverage OpenVINO's optimized inference engine for neural
 // network architectures including transformers, CNNs, RNNs, and GNNs.
 //
-// Basic usage:
+// Basic synchronous usage:
 //
 //	core, err := openvino.NewCore()
 //	if err != nil {
@@ -55,4 +55,34 @@
 //	if err != nil {
 //		log.Fatal(err)
 //	}
+//
+// Asynchronous inference:
+//
+//	// Start async inference
+//	err = request.StartAsync()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	// Do other work while inference runs...
+//
+//	// Wait for completion
+//	err = request.Wait()
+//	if err != nil {
+//		log.Fatal(err)
+//	}
+//
+//	// Or use convenience method
+//	err = request.InferAsync()
+//
+//	// Or with timeout
+//	completed, err := request.WaitFor(5000) // 5 seconds
+//	if !completed {
+//		log.Fatal("inference timed out")
+//	}
+//
+//	// Or with context support
+//	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+//	defer cancel()
+//	err = request.InferAsyncWithContext(ctx)
 package openvino

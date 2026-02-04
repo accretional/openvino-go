@@ -32,3 +32,8 @@ func (cm *CompiledModel) Close() {
 		cm.compiled.Destroy()
 	}
 }
+
+// ReleaseMemory releases memory allocated for intermediate structures when possible.
+func (cm *CompiledModel) ReleaseMemory() error {
+	return cm.compiled.ReleaseMemory()
+}

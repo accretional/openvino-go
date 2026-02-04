@@ -46,11 +46,11 @@ From the repo root (after Setup and Build):
 go test ./...
 ```
 
-To run tests that need a model (compile/inference), generate one and set `OPENVINO_TEST_MODEL`:
+To run tests that need a model (compile/inference), download one and set `OPENVINO_TEST_MODEL`:
 
 ```bash
-scripts/download-model.sh   # requires: pip install openvino
-export OPENVINO_TEST_MODEL=models/test_model.xml
+go run cmd/ovmodel/main.go -model test-model
+export OPENVINO_TEST_MODEL=models/test_model.onnx
 go test ./... -v
 ```
 
@@ -61,8 +61,11 @@ go test ./... -v
 Basic inference pipeline demonstration:
 
 ```bash
-scripts/download-model.sh
-go run examples/hello-world/main.go models/test_model.xml
+# Download test model
+go run cmd/ovmodel/main.go -model test-model
+
+# Run the example (OpenVINO supports both .onnx and .xml)
+go run examples/hello-world/main.go models/test_model.onnx
 ```
 
 ### Text Embedding Example
@@ -70,11 +73,38 @@ go run examples/hello-world/main.go models/test_model.xml
 Text embedding inference with transformer models:
 
 ```bash
-# Requires a text embedding model
-go run examples/text-embedding/main.go model.xml "Your text here"
+# Download a text embedding model
+go run cmd/ovmodel/main.go -model all-MiniLM-L6-v2
+
+# Run the example
+go run examples/text-embedding/main.go models/sentence-transformers_all-MiniLM-L6-v2/model.onnx "Your text here"
 ```
 
 See `examples/text-embedding/README.md` for more details on getting and using embedding models.
+
+### Text Embedding Async Example
+
+Asynchronous inference for batch text embedding processing:
+
+```bash
+# Download a text embedding model
+go run cmd/ovmodel/main.go -model all-MiniLM-L6-v2
+
+# Process multiple texts concurrently using async inference
+go run examples/text-embedding-async/main.go \
+  models/sentence-transformers_all-MiniLM-L6-v2/model.onnx \
+  "Hello, world!" \
+  "How are you?" \
+  "Good morning!"
+```
+
+This example demonstrates:
+- Async inference with `StartAsync()` and `Wait()`
+- Parallel processing of multiple texts
+- Request pooling for better performance
+- Throughput optimization
+
+See `examples/text-embedding-async/README.md` for more details.
 
 ## Troubleshooting
 
@@ -91,6 +121,14 @@ export TMPDIR=$HOME/.tmp GOTMPDIR=$HOME/.tmp
 
 Then run your `go run` or `go test` as usual. To make this persistent, add the `export` lines to `~/.bashrc` or `~/.profile`.
 
+## Features
+
+- Synchronous and asynchronous inference
+- Tensor operations (input/output tensor management)
+- Device enumeration and selection
+- Performance optimizations (performance hints, stream configuration)
+- Model I/O introspection
+
 ## Status
 
-**Early Development** - This project is in active development. 
+**Phase 3 Complete** - Core features and advanced features (async inference) are implemented. The project is ready for production use with comprehensive testing. 
