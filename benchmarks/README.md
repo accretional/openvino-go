@@ -36,7 +36,23 @@ cd cmd/runbench
 | **SeqLen** | Performance scaling with sequence lengths |
 | **Threads** | Thread count scaling (1, 2, 4, 8 threads) |
 | **Memory** | Memory consumption during inference |
-| **ConcurrentSessions** | Multiple model instances running in parallel |
+| **ConcurrentSessions** | Multiple independent model instances (1, 2 sessions) |
+| **AsyncInference** | OpenVINO async API with multiple InferRequests (recommended pattern) |
+
+### Concurrency Patterns
+
+The benchmarks test two different concurrency patterns:
+
+1. **ConcurrentSessions**: Creates multiple independent model instances, each with its own
+   compiled model. This pattern is common when you need isolated sessions but can suffer
+   from thread oversubscription.
+
+2. **AsyncInference** (OpenVINO only): Uses a single compiled model with multiple
+   `InferRequest` objects and the async API (`StartAsync`/`Wait`). This is the recommended
+   pattern for OpenVINO as it:
+   - Shares resources efficiently
+   - Scales better with increasing concurrency
+   - Avoids thread oversubscription
 
 ## Running Benchmarks
 

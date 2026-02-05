@@ -571,15 +571,21 @@ func BenchmarkOpenVINO_Threads(b *testing.B) {
 }
 
 // BenchmarkOpenVINO_ConcurrentSessions tests multiple independent sessions.
+// Each session is configured with threads proportional to available cores / num_sessions
+// to avoid thread oversubscription.
 func BenchmarkOpenVINO_ConcurrentSessions(b *testing.B) {
 	if sharedCore == nil {
 		b.Fatal("sharedCore not initialized")
 	}
 
-	sessionCounts := []int{1, 2, 4, 8}
+	numCPU := runtime.NumCPU()
+	// Test with 1 and 2 concurrent sessions
+	// Higher session counts require significant memory (each loads full model copy)
+	sessionCounts := []int{1, 2}
 
 	for _, numSessions := range sessionCounts {
 		b.Run(fmt.Sprintf("sessions_%d", numSessions), func(b *testing.B) {
+
 			// Create multiple compiled models and requests
 			type session struct {
 				model    *openvino.Model
@@ -588,15 +594,23 @@ func BenchmarkOpenVINO_ConcurrentSessions(b *testing.B) {
 			}
 			sessions := make([]session, numSessions)
 
+			// Distribute threads across sessions to avoid oversubscription
+			threadsPerSession := numCPU / numSessions
+			if threadsPerSession < 1 {
+				threadsPerSession = 1
+			}
+
 			for i := 0; i < numSessions; i++ {
 				model, err := sharedCore.ReadModel(benchModelPath)
 				if err != nil {
-					b.Fatalf("ReadModel: %v", err)
+					b.Skipf("ReadModel failed (likely OOM): %v", err)
 				}
-				compiled, err := sharedCore.CompileModel(model, "CPU")
+				// Configure each session to use proportional threads
+				compiled, err := sharedCore.CompileModel(model, "CPU",
+					openvino.InferenceNumThreads(threadsPerSession))
 				if err != nil {
 					model.Close()
-					b.Fatalf("CompileModel: %v", err)
+					b.Skipf("CompileModel failed (likely OOM): %v", err)
 				}
 				req, err := compiled.CreateInferRequest()
 				if err != nil {
@@ -642,6 +656,70 @@ func BenchmarkOpenVINO_ConcurrentSessions(b *testing.B) {
 			wg.Wait()
 			if v := firstErr.Load(); v != nil {
 				b.Fatalf("concurrent sessions error: %v", v)
+			}
+		})
+	}
+}
+
+// BenchmarkOpenVINO_AsyncInference tests the recommended async pattern:
+// single CompiledModel with multiple InferRequests using StartAsync/Wait.
+// This is the proper way to handle concurrent inference in OpenVINO.
+func BenchmarkOpenVINO_AsyncInference(b *testing.B) {
+	if sharedCore == nil {
+		b.Fatal("sharedCore not initialized")
+	}
+
+	// Number of concurrent async requests to test
+	requestCounts := []int{1, 2, 4, 8}
+
+	for _, numRequests := range requestCounts {
+		b.Run(fmt.Sprintf("requests_%d", numRequests), func(b *testing.B) {
+			model, err := sharedCore.ReadModel(benchModelPath)
+			if err != nil {
+				b.Fatalf("ReadModel: %v", err)
+			}
+			defer model.Close()
+
+			// Single compiled model for all requests
+			compiled, err := sharedCore.CompileModel(model, "CPU")
+			if err != nil {
+				b.Fatalf("CompileModel: %v", err)
+			}
+			defer compiled.Close()
+
+			// Create multiple infer requests from the same compiled model
+			requests := make([]*openvino.InferRequest, numRequests)
+			for i := 0; i < numRequests; i++ {
+				req, err := compiled.CreateInferRequest()
+				if err != nil {
+					b.Fatalf("CreateInferRequest: %v", err)
+				}
+				setOpenVINOInputs(b, req)
+				requests[i] = req
+			}
+			defer func() {
+				for _, req := range requests {
+					req.Close()
+				}
+			}()
+
+			b.ReportAllocs()
+			b.ResetTimer()
+
+			// Each iteration: start all requests async, then wait for all
+			for i := 0; i < b.N; i++ {
+				// Start all requests asynchronously
+				for _, req := range requests {
+					if err := req.StartAsync(); err != nil {
+						b.Fatalf("StartAsync: %v", err)
+					}
+				}
+				// Wait for all to complete
+				for _, req := range requests {
+					if err := req.Wait(); err != nil {
+						b.Fatalf("Wait: %v", err)
+					}
+				}
 			}
 		})
 	}

@@ -33,11 +33,14 @@ func main() {
 	filter := "."
 	showHelp := false
 
+	// Pattern for benchtime: number followed by 'x' (iterations) or time unit (s, ms, etc.)
+	benchtimePattern := regexp.MustCompile(`^\d+[xsmh]$|^\d+ms$|^\d+us$|^\d+ns$`)
+
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
 		if arg == "-h" || arg == "--help" {
 			showHelp = true
-		} else if strings.HasSuffix(arg, "x") || strings.HasSuffix(arg, "s") {
+		} else if benchtimePattern.MatchString(arg) {
 			benchtime = arg
 		} else {
 			filter = arg
@@ -71,7 +74,7 @@ func main() {
 	printBenchmarkContext()
 	fmt.Printf("Running benchmarks (iterations: %s, filter: %s)...\n\n", benchtime, filter)
 
-	cmd := exec.Command("go", "test", "-bench="+filter, "-benchmem", "-benchtime="+benchtime)
+	cmd := exec.Command("go", "test", "-bench="+filter, "-benchmem", "-benchtime="+benchtime, "-v")
 	// Find the benchmarks directory (two levels up from cmd/runbench)
 	cmd.Dir = "../.."
 	output, err := cmd.CombinedOutput()
@@ -139,6 +142,7 @@ func printBenchmarkContext() {
 	fmt.Println("│    - Threads:            Thread count scaling")
 	fmt.Println("│    - Memory:             Memory consumption during inference")
 	fmt.Println("│    - ConcurrentSessions: Multiple model instances")
+	fmt.Println("│    - AsyncInference:     Async API with multiple requests (OpenVINO only)")
 	fmt.Println("└──────────────────────────────────────────────────────────────────────────────")
 	fmt.Println()
 }
@@ -197,21 +201,23 @@ func parseResults(output string) []BenchResult {
 	for scanner.Scan() {
 		line := scanner.Text()
 
-		// Skip non-benchmark lines
-		if !strings.HasPrefix(line, "Benchmark") {
-			continue
-		}
-
-		// Check for skip
-		if strings.Contains(line, "--- SKIP") {
-			skipPattern := regexp.MustCompile(`--- SKIP: Benchmark(OpenVINO|ONNXRuntime)_(\w+)`)
+		// Check for skip lines (handles both top-level and subtest skips)
+		if strings.HasPrefix(line, "--- SKIP") {
+			// Pattern matches: --- SKIP: BenchmarkRuntime_TestName or --- SKIP: BenchmarkRuntime_TestName/subtest
+			skipPattern := regexp.MustCompile(`--- SKIP: Benchmark(OpenVINO|ONNXRuntime)_(\w+)(?:/(\S+))?`)
 			if matches := skipPattern.FindStringSubmatch(line); matches != nil {
 				results = append(results, BenchResult{
 					Runtime: matches[1],
 					Name:    matches[2],
+					SubTest: matches[3],
 					Skipped: true,
 				})
 			}
+			continue
+		}
+
+		// Skip non-benchmark lines
+		if !strings.HasPrefix(line, "Benchmark") {
 			continue
 		}
 
@@ -282,7 +288,7 @@ func printResults(results []BenchResult) {
 
 	// Sort group names in a logical order
 	order := []string{"Load", "Infer", "InferParallel", "FirstInference", "Throughput",
-		"BatchSize", "SeqLen", "Threads", "Memory", "ConcurrentSessions"}
+		"BatchSize", "SeqLen", "Threads", "Memory", "ConcurrentSessions", "AsyncInference"}
 	var names []string
 	seen := make(map[string]bool)
 	for _, name := range order {
@@ -352,6 +358,8 @@ func formatTestName(name string) string {
 		return "Memory Usage"
 	case "ConcurrentSessions":
 		return "Concurrent Sessions"
+	case "AsyncInference":
+		return "Async Inference (OpenVINO)"
 	default:
 		return name
 	}
@@ -519,6 +527,8 @@ func printSubtestTable(results []BenchResult) {
 		comparison := ""
 		if ov != nil && ort != nil && !ov.Skipped && !ort.Skipped {
 			comparison = compareLatencyShort(ov.NsPerOp, ort.NsPerOp)
+		} else if (ov != nil && ov.Skipped) || (ort != nil && ort.Skipped) {
+			comparison = "(skipped)"
 		}
 
 		fmt.Printf("│  %-18s %14s %14s %18s\n", subtest, ovTime, ortTime, comparison)
