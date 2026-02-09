@@ -2,7 +2,7 @@ package cgo
 
 /*
 #cgo CFLAGS: -I${SRCDIR}/../cwrapper
-#cgo LDFLAGS: -L${SRCDIR}/../cwrapper -Wl,-rpath,${SRCDIR}/../cwrapper -lopenvino_wrapper -lopenvino
+#cgo LDFLAGS: -L${SRCDIR}/../cwrapper/prebuilt -Wl,-rpath,${SRCDIR}/../cwrapper/prebuilt -lopenvino_wrapper -lopenvino
 
 #include "core_wrapper.h"
 #include <stdlib.h>

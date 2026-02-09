@@ -6,6 +6,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 CW_DIR="$PROJECT_ROOT/internal/cwrapper"
+PREBUILT_DIR="$CW_DIR/prebuilt"
 
 OPENVINO_ROOT="${OPENVINO_ROOT:-}"
 ARCH="${ARCH:-intel64}"
@@ -33,9 +34,10 @@ g++ -std=c++17 -fPIC -O2 -Wall -Wno-deprecated-declarations \
     -c "$CW_DIR/core_wrapper.cpp" \
     -o "$CW_DIR/core_wrapper.o"
 
+mkdir -p "$PREBUILT_DIR"
 g++ -shared \
-    -o "$CW_DIR/libopenvino_wrapper.so" \
+    -o "$PREBUILT_DIR/libopenvino_wrapper.so" \
     "$CW_DIR/core_wrapper.o" \
     $LIB_FLAGS -lopenvino
 
-echo "==> Built $CW_DIR/libopenvino_wrapper.so"
+echo "==> Built $PREBUILT_DIR/libopenvino_wrapper.so"

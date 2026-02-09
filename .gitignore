@@ -31,6 +31,8 @@ go.work
 *.o
 *.a
 *.so
+# Allow committed prebuilt C++ wrapper for go-get usability (Linux amd64)
+!internal/cwrapper/prebuilt/libopenvino_wrapper.so
 
 # OpenVINO models (if storing locally)
 *.xml

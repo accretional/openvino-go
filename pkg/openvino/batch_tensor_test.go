@@ -130,6 +130,12 @@ func TestInferRequest_SetInputTensorsByIndex(t *testing.T) {
 		t.Skip("first input has no shape")
 	}
 
+	// Skip before calling API if model has no batch dimension (avoids OpenVINO error)
+	hasBatchDim := shape[0] > 1 || shape[0] == -1
+	if !hasBatchDim {
+		t.Skip("model does not have batch dimension (set_input_tensors requires N dimension)")
+	}
+
 	batchSize := 2
 	tensors := make([]*Tensor, batchSize)
 	for i := 0; i < batchSize; i++ {

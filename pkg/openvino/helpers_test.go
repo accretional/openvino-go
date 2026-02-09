@@ -2,6 +2,7 @@ package openvino
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -24,5 +25,27 @@ func coreAvailable(t *testing.T) *Core {
 
 func getTestModelPath(t *testing.T) string {
 	t.Helper()
-	return os.Getenv("OPENVINO_TEST_MODEL")
+	path := os.Getenv("OPENVINO_TEST_MODEL")
+	if path == "" {
+		return ""
+	}
+	// Resolve relative paths against cwd first, then module root, so "models/test_model.onnx" works
+	if !filepath.IsAbs(path) {
+		cwd, _ := os.Getwd()
+		for dir := cwd; dir != ""; dir = filepath.Dir(dir) {
+			try := filepath.Join(dir, path)
+			if _, err := os.Stat(try); err == nil {
+				return try
+			}
+			if dir == filepath.Dir(dir) {
+				break
+			}
+		}
+		path = filepath.Join(cwd, path)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("OPENVINO_TEST_MODEL: file not found %q (use absolute path or run tests from repo root)", path)
+		return ""
+	}
+	return path
 }

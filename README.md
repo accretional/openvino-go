@@ -2,40 +2,62 @@
 
 Go bindings for Intel OpenVINO Runtime.
 
-For now, the supported way to use this project is: **clone the repo, build it, then use it from here.** 
+Use it with **go get** — no clone or build scripts required for typical use.
 
-## How to use (for now)
+## Quick start
 
-1. **Clone** the repository.
-2. **Setup** – run `scripts/setup.sh` to install OpenVINO and build tools.
-3. **Build** – run `scripts/build.sh` to build the C++ wrapper.
-4. **Use** – run the example, run tests, or use the package from another Go module by adding a `replace` in your `go.mod` pointing at this clone:
+**Import path:** `github.com/accretional/openvino-go/pkg/openvino`
 
-   ```go
-   replace github.com/accretional/openvino-go => /path/to/openvino-go
+1. **Install OpenVINO**. On Ubuntu/Debian:
+   ```bash
+   # Add Intel APT repo and install (see Setup below for full steps)
+   sudo apt-get update && sudo apt-get install -y openvino-2024.4.0
    ```
 
-   Then in your code: `import "github.com/accretional/openvino-go/pkg/openvino"` and build with `CGO_ENABLED=1`.
+2. **Add the package** and build with CGO:
+   ```bash
+   go get github.com/accretional/openvino-go
+   CGO_ENABLED=1 go build .
+   ```
+
+3. **In your code:** `import "github.com/accretional/openvino-go/pkg/openvino"`
+
+A **prebuilt C++ wrapper** is included at `internal/cwrapper/prebuilt/libopenvino_wrapper.so` (Linux amd64, system OpenVINO). After `go get`, you only need OpenVINO installed and `CGO_ENABLED=1`; no need to clone the repo or run `scripts/build.sh`.
+
+**Other platforms or custom OpenVINO:** run once to build the wrapper:
+```bash
+go generate ./...
+```
+
+## Using from this repo
+
+1. **Clone** the repository.
+2. **Setup** – run `scripts/setup.sh` to install OpenVINO and build tools (if not already installed).
+3. **Build** – run `scripts/build.sh` (or `go generate ./...`) to build the C++ wrapper if you need to rebuild it.
+4. **Use** – run the examples, run tests, or depend on the package from another module.
 
 ## Prerequisites
 
-- Linux (x86-64)
+- Linux (x86-64) for the included prebuilt wrapper; other platforms use `go generate ./...` to build.
 - Go 1.21+
-- g++ with C++17 support
-- Intel OpenVINO Runtime 2024.x+
+- Intel OpenVINO Runtime 2024.x+ (must be installed for linking and runtime).
 
-## Setup
+## Setup (when not using the prebuilt wrapper)
 
-Install OpenVINO and build tools:
+Install OpenVINO and build tools (for clone-and-build or to rebuild the wrapper):
 
 ```bash
 scripts/setup.sh
 ```
 
-## Build
+## Build (when developing in this repo or on non-Linux)
+
+Rebuild the C++ wrapper:
 
 ```bash
 scripts/build.sh
+# or
+go generate ./...
 ```
 
 ## Test
