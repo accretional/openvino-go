@@ -8,11 +8,8 @@ Use it with **go get** — no clone or build scripts required for typical use.
 
 **Import path:** `github.com/accretional/openvino-go/pkg/openvino`
 
-1. **Install OpenVINO**. On Ubuntu/Debian:
-   ```bash
-   # Add Intel APT repo and install (see Setup below for full steps)
-   sudo apt-get update && sudo apt-get install -y openvino-2024.4.0
-   ```
+1. **Install OpenVINO**: 
+   Follow [these steps to install OpenVINO](https://docs.openvino.ai/2025/get-started/install-openvino.html)
 
 2. **Add the package** and build with CGO:
    ```bash
