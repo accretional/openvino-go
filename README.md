@@ -37,7 +37,7 @@ go generate ./...
 
 - Linux (x86-64) for the included prebuilt wrapper; other platforms use `go generate ./...` to build.
 - Go 1.21+
-- Intel OpenVINO Runtime 2024.x+ (must be installed for linking and runtime).
+- Intel OpenVINO Runtime 2025.x (must be installed for linking and runtime). `scripts/setup.sh` installs 2025.4.0 on Linux.
 
 ## Setup (when not using the prebuilt wrapper)
 
