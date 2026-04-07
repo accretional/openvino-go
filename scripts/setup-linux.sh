@@ -51,20 +51,30 @@ else
             ;;
     esac
 
-    OPENVINO_VERSION="${OPENVINO_VERSION:-2025.4.0}"
+    OPENVINO_VERSION="${OPENVINO_VERSION:-2026.1.0}"
     echo "==> Installing OpenVINO ${OPENVINO_VERSION} (${APT_CODENAME})..."
 
     sudo apt-get update
-    sudo apt-get install -y gnupg ca-certificates
+    sudo apt-get install -y gnupg ca-certificates wget
 
-    # Add Intel APT repository for OpenVINO 2025
-    curl -fsSL https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB \
-        | sudo gpg --dearmor -o /usr/share/keyrings/intel-openvino.gpg
-    echo "deb [signed-by=/usr/share/keyrings/intel-openvino.gpg] https://apt.repos.intel.com/openvino/2025 ${APT_CODENAME} main" \
+    # Step 1: Download the Intel GPG key
+    wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+
+    # Step 2: Add the key to the system keyring
+    sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+
+    # Step 3: Add the OpenVINO APT repository for the detected Ubuntu version
+    echo "deb https://apt.repos.intel.com/openvino ${APT_CODENAME} main" \
         | sudo tee /etc/apt/sources.list.d/intel-openvino.list
 
-    sudo apt-get update
-    sudo apt-get install -y "openvino-${OPENVINO_VERSION}"
+    # Step 4: Update the package list
+    sudo apt update
+
+    # Step 5: Verify available OpenVINO packages
+    apt-cache search openvino
+
+    # Step 6: Install OpenVINO Runtime
+    sudo apt install -y "openvino-${OPENVINO_VERSION}"
 
     echo "==> OpenVINO ${OPENVINO_VERSION} installed"
 fi

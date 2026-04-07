@@ -28,11 +28,10 @@ go.work
 *~
 
 # Build artifacts
-*.o
 *.a
-*.so
-# Allow committed prebuilt C++ wrapper for go-get usability (Linux amd64)
+# Allow committed prebuilt C++ wrappers for go-get usability
 !internal/cwrapper/prebuilt/libopenvino_wrapper.so
+!internal/cwrapper/prebuilt/libopenvino_wrapper.dylib
 
 # OpenVINO models (if storing locally)
 *.xml
@@ -53,6 +52,7 @@ Thumbs.db
 *.cgo1.go
 *.cgo2.c
 _cgo_export.*
+*.o
 
 # Documentation builds
 docs/_build/

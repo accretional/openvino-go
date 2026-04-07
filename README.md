@@ -2,14 +2,12 @@
 
 Go bindings for Intel OpenVINO Runtime.
 
-Use it with **go get** — no clone or build scripts required for typical use.
-
 ## Quick start
 
 **Import path:** `github.com/accretional/openvino-go/pkg/openvino`
 
 1. **Install OpenVINO**: 
-   Follow [these steps to install OpenVINO](https://docs.openvino.ai/2025/get-started/install-openvino.html)
+   Follow [these steps to install OpenVINO](https://docs.openvino.ai/2026/get-started/install-openvino.html)
 
 2. **Add the package** and build with CGO:
    ```bash
@@ -26,7 +24,7 @@ A **prebuilt C++ wrapper** is included at `internal/cwrapper/prebuilt/libopenvin
 go generate ./...
 ```
 
-## Using from this repo
+## Using this repo
 
 1. **Clone** the repository.
 2. **Setup** – run `scripts/setup.sh` to install OpenVINO and build tools (if not already installed).

@@ -40,4 +40,5 @@ g++ -shared \
     "$CW_DIR/core_wrapper.o" \
     $LIB_FLAGS -lopenvino
 
+rm -f "$CW_DIR/core_wrapper.o"
 echo "==> Built $PREBUILT_DIR/libopenvino_wrapper.so"
