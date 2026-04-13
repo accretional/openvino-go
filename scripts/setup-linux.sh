@@ -57,26 +57,28 @@ else
     sudo apt-get update
     sudo apt-get install -y gnupg ca-certificates wget
 
+    INTEL_GPG="/tmp/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB"
     # Step 1: Download the Intel GPG key
-    wget https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+    wget -q "https://apt.repos.intel.com/intel-gpg-keys/GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB" -O "$INTEL_GPG"
 
     # Step 2: Add the key to the system keyring
-    sudo apt-key add GPG-PUB-KEY-INTEL-SW-PRODUCTS.PUB
+    sudo apt-key add "$INTEL_GPG"
+    rm -f "$INTEL_GPG"
 
     # Step 3: Add the OpenVINO APT repository for the detected Ubuntu version
     echo "deb https://apt.repos.intel.com/openvino ${APT_CODENAME} main" \
         | sudo tee /etc/apt/sources.list.d/intel-openvino.list
 
     # Step 4: Update the package list
-    sudo apt update
+    sudo apt-get update
 
     # Step 5: Verify available OpenVINO packages
     apt-cache search openvino
 
     # Step 6: Install OpenVINO Runtime
-    sudo apt install -y "openvino-${OPENVINO_VERSION}"
+    sudo apt-get install -y "openvino-${OPENVINO_VERSION}"
 
     echo "==> OpenVINO ${OPENVINO_VERSION} installed"
 fi
 
-echo "==> Setup complete. Run scripts/build.sh next."
+echo "==> Setup complete. Run: make build"

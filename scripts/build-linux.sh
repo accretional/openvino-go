@@ -23,7 +23,7 @@ elif [ -f /usr/include/openvino/openvino.hpp ]; then
     LIB_FLAGS=""
     echo "==> Using system-installed OpenVINO"
 else
-    echo "Error: OpenVINO not found. Run scripts/setup.sh or set OPENVINO_ROOT." >&2
+    echo "Error: OpenVINO not found. Run: make setup  (or set OPENVINO_ROOT)" >&2
     exit 1
 fi
 

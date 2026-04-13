@@ -17,7 +17,7 @@ Go bindings for Intel OpenVINO Runtime.
 
 3. **In your code:** `import "github.com/accretional/openvino-go/pkg/openvino"`
 
-A **prebuilt C++ wrapper** is included at `internal/cwrapper/prebuilt/libopenvino_wrapper.so` (Linux amd64, system OpenVINO). After `go get`, you only need OpenVINO installed and `CGO_ENABLED=1`; no need to clone the repo or run `scripts/build.sh`.
+A **prebuilt C++ wrapper** is included at `internal/cwrapper/prebuilt/libopenvino_wrapper.so` (Linux amd64, system OpenVINO). After `go get`, you only need OpenVINO installed and `CGO_ENABLED=1`; no need to clone the repo or run `make build`.
 
 **Other platforms or custom OpenVINO:** run once to build the wrapper:
 ```bash
@@ -27,22 +27,22 @@ go generate ./...
 ## Using this repo
 
 1. **Clone** the repository.
-2. **Setup** – run `scripts/setup.sh` to install OpenVINO and build tools (if not already installed).
-3. **Build** – run `scripts/build.sh` (or `go generate ./...`) to build the C++ wrapper if you need to rebuild it.
+2. **Setup** – `make setup` installs OpenVINO and build tools (if not already installed).
+3. **Build** – `make build` or `go generate ./...` to rebuild the C++ wrapper when needed.
 4. **Use** – run the examples, run tests, or depend on the package from another module.
 
 ## Prerequisites
 
 - Linux (x86-64) for the included prebuilt wrapper; other platforms use `go generate ./...` to build.
 - Go 1.21+
-- Intel OpenVINO Runtime 2025.x (must be installed for linking and runtime). `scripts/setup.sh` installs 2025.4.0 on Linux.
+- Intel OpenVINO Runtime 2026.x (must be installed for linking and runtime). `make setup` installs OpenVINO on Linux via Intel’s APT repo.
 
 ## Setup (when not using the prebuilt wrapper)
 
 Install OpenVINO and build tools (for clone-and-build or to rebuild the wrapper):
 
 ```bash
-scripts/setup.sh
+make setup
 ```
 
 ## Build (when developing in this repo or on non-Linux)
@@ -50,17 +50,17 @@ scripts/setup.sh
 Rebuild the C++ wrapper:
 
 ```bash
-scripts/build.sh
+make build
 # or
 go generate ./...
 ```
 
 ## Test
 
-From the repo root (after Setup and Build):
+From the repo root (after setup and build when rebuilding the wrapper):
 
 ```bash
-go test ./...
+make test
 ```
 
 To run tests that need a model (compile/inference), download one and set `OPENVINO_TEST_MODEL`:

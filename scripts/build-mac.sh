@@ -15,7 +15,7 @@ elif [ -d "$HOME/.local/openvino-${OPENVINO_VERSION}/runtime/include" ]; then
     export OPENVINO_ROOT="$HOME/.local/openvino-${OPENVINO_VERSION}"
     echo "==> Using OpenVINO from default install: $OPENVINO_ROOT"
 else
-    echo "Error: OpenVINO not found. Run scripts/setup-mac.sh or set OPENVINO_ROOT." >&2
+    echo "Error: OpenVINO not found. Run: make setup  (or set OPENVINO_ROOT)" >&2
     exit 1
 fi
 
