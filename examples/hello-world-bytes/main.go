@@ -1,5 +1,5 @@
-// Hello World example for openvino-go
-// This demonstrates the basic inference pipeline
+// Hello World Bytes example for openvino-go
+// This demonstrates loading models from []byte memory buffers (both single-file like ONNX and dual-file like OpenVINO IR XML+BIN)
 package main
 
 import (
@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,18 +16,47 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Println("Usage: hello-world <model.xml>")
-		fmt.Println("\nNote: Provide the .xml file; the .bin file is loaded automatically.")
+		fmt.Println("Usage: hello-world-bytes <model.onnx | model.xml>")
+		fmt.Println("\nExamples:")
+		fmt.Println("  1. ONNX model (single buffer):")
+		fmt.Println("     hello-world-bytes model.onnx")
+		fmt.Println("  2. OpenVINO IR model (XML + BIN buffers):")
+		fmt.Println("     hello-world-bytes model.xml")
 		os.Exit(1)
 	}
 
 	modelPath := os.Args[1]
-	if !strings.HasSuffix(modelPath, ".xml") && !strings.HasSuffix(modelPath, ".onnx") {
+	ext := strings.ToLower(filepath.Ext(modelPath))
+	if ext != ".xml" && ext != ".onnx" {
 		log.Fatalf("Model must be a .xml (OpenVINO IR) or .onnx file, got: %s", modelPath)
 	}
 
+	// Read primary model buffer from disk
+	modelBytes, err := os.ReadFile(modelPath)
+	if err != nil {
+		log.Fatalf("Failed to read model file %s: %v", modelPath, err)
+	}
+	fmt.Printf("Loaded model file into memory (%d bytes)\n", len(modelBytes))
+
+	var weightsBytes []byte
+	if ext == ".xml" {
+		// For OpenVINO IR (.xml), check if a matching .bin weights file exists
+		binPath := strings.TrimSuffix(modelPath, filepath.Ext(modelPath)) + ".bin"
+		if bData, err := os.ReadFile(binPath); err == nil {
+			weightsBytes = bData
+			fmt.Printf("Loaded weights file %s into memory (%d bytes)\n", binPath, len(weightsBytes))
+		} else {
+			fmt.Printf("No separate weights file found at %s (using self-contained XML model)\n", binPath)
+		}
+	} else if ext == ".onnx" {
+		// For ONNX models, weights are already embedded in the single ONNX file/buffer.
+		// Set weightsBytes to nil.
+		weightsBytes = nil
+		fmt.Println("ONNX model: single file format (weightsBuffer set to nil)")
+	}
+
 	// Step 1: Create OpenVINO Core
-	fmt.Println("Creating OpenVINO Core...")
+	fmt.Println("\nCreating OpenVINO Core...")
 	core, err := openvino.NewCore()
 	if err != nil {
 		log.Fatalf("Failed to create core: %v", err)
@@ -41,15 +71,16 @@ func main() {
 	}
 	fmt.Printf("Available devices: %v\n", devices)
 
-	// Step 3: Load model
-	fmt.Printf("Loading model from: %s\n", modelPath)
-	model, err := core.ReadModel(modelPath)
+	// Step 3: Read Model from memory buffers ([]byte)
+	fmt.Println("\nLoading model from []byte memory buffer...")
+	model, err := core.ReadModelFromBuffer(modelBytes, weightsBytes)
 	if err != nil {
-		log.Fatalf("Failed to read model: %v", err)
+		log.Fatalf("Failed to read model from buffer: %v", err)
 	}
 	defer model.Close()
+	fmt.Println("Model successfully parsed and loaded from memory!")
 
-	// Step 3.5: Get model I/O information
+	// Step 4: Inspect Model I/O Information
 	fmt.Println("\n=== Model I/O Information ===")
 	inputs, err := model.GetInputs()
 	if err != nil {
@@ -72,11 +103,12 @@ func main() {
 	}
 	fmt.Println()
 
-	fmt.Println("Compiling model for CPU with performance optimizations...")
+	// Step 5: Compile model
 	device := "CPU"
 	if len(devices) > 0 {
 		device = devices[0]
 	}
+	fmt.Printf("Compiling model for device: %s...\n", device)
 
 	compiledModel, err := core.CompileModel(model, device,
 		openvino.PerformanceHint(openvino.PerformanceModeThroughput),
@@ -86,16 +118,14 @@ func main() {
 		log.Fatalf("Failed to compile model: %v", err)
 	}
 	defer compiledModel.Close()
-	fmt.Printf("Model compiled successfully for device: %s with optimizations\n", device)
 
+	// Step 6: Create Infer Request & Run Inference
 	fmt.Println("Creating inference request...")
 	request, err := compiledModel.CreateInferRequest()
 	if err != nil {
 		log.Fatalf("Failed to create infer request: %v", err)
 	}
 	defer request.Close()
-
-	fmt.Println("Preparing input data...")
 
 	var inputShape []int64
 	var inputName string
@@ -108,13 +138,10 @@ func main() {
 		for i, dim := range inputs[0].Shape {
 			inputShape[i] = int64(dim)
 		}
-		fmt.Printf("Using model input info: name='%s', shape=%v, type=%d\n", inputName, inputShape, inputDataType)
 	} else {
-		// Fallback to default shape if I/O info not available
 		inputShape = []int64{1, 3, 224, 224}
 		inputName = "input"
 		inputDataType = openvino.DataTypeFloat32
-		fmt.Printf("Using default input shape: %v\n", inputShape)
 	}
 
 	inputSize := int64(1)
@@ -129,7 +156,6 @@ func main() {
 	fmt.Println("Setting input tensor...")
 	err = request.SetInputTensor(inputName, inputData, inputShape, inputDataType)
 	if err != nil {
-		fmt.Printf("Setting by name failed, trying by index 0...\n")
 		err = request.SetInputTensorByIndex(0, inputData, inputShape, inputDataType)
 		if err != nil {
 			log.Fatalf("Failed to set input tensor: %v", err)
@@ -142,30 +168,13 @@ func main() {
 
 	err = request.InferWithContext(ctx)
 	if err != nil {
-		if err == context.DeadlineExceeded {
-			log.Fatalf("Inference timed out after 30 seconds")
-		}
 		log.Fatalf("Failed to run inference: %v", err)
 	}
 
-	fmt.Println("Getting output tensor...")
-	var outputTensor *openvino.Tensor
-	if len(outputs) > 0 {
-		outputTensor, err = request.GetOutputTensor(outputs[0].Name)
-		if err != nil {
-			outputTensor, err = request.GetOutputTensorByIndex(0)
-			if err != nil {
-				log.Fatalf("Failed to get output tensor: %v", err)
-			}
-		}
-	} else {
-		outputTensor, err = request.GetOutputTensorByIndex(0)
-		if err != nil {
-			outputTensor, err = request.GetOutputTensor("output")
-			if err != nil {
-				log.Fatalf("Failed to get output tensor: %v", err)
-			}
-		}
+	// Step 7: Get Output
+	outputTensor, err := request.GetOutputTensorByIndex(0)
+	if err != nil {
+		log.Fatalf("Failed to get output tensor: %v", err)
 	}
 	defer outputTensor.Close()
 
@@ -179,27 +188,14 @@ func main() {
 		log.Fatalf("Failed to get output shape: %v", err)
 	}
 
-	fmt.Printf("Inference completed successfully\n")
+	fmt.Printf("\nInference completed successfully!\n")
 	fmt.Printf("Output shape: %v\n", outputShape)
 	fmt.Printf("Output size: %d elements\n", len(outputData))
 
-	fmt.Println("First 10 output values:")
+	fmt.Println("\nFirst 10 output values:")
 	for i := 0; i < len(outputData) && i < 10; i++ {
 		fmt.Printf("  [%d] = %f\n", i, outputData[i])
 	}
 
-	// For classification models, find the class with highest probability
-	if len(outputData) > 0 {
-		maxIdx := 0
-		maxVal := outputData[0]
-		for i, val := range outputData {
-			if val > maxVal {
-				maxVal = val
-				maxIdx = i
-			}
-		}
-		fmt.Printf("\nPredicted class index: %d (confidence: %f)\n", maxIdx, maxVal)
-	}
-
-	fmt.Println("\nHello World example completed successfully")
+	fmt.Println("\nHello World Bytes example completed successfully")
 }

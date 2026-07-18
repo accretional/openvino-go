@@ -10,6 +10,7 @@ extern "C" {
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 // Opaque handle types (to handle unsafe pointers)
 typedef struct openvino_core* OpenVINOCore;
@@ -35,6 +36,14 @@ void openvino_core_free_device_list(char** devices, int32_t count);
 
 // Model loading
 OpenVINOModel openvino_core_read_model(OpenVINOCore core, const char* model_path, OpenVINOError* error);
+OpenVINOModel openvino_core_read_model_from_buffer(
+    OpenVINOCore core,
+    const uint8_t* model_buffer,
+    size_t model_size,
+    const uint8_t* weights_buffer,
+    size_t weights_size,
+    OpenVINOError* error
+);
 void openvino_model_destroy(OpenVINOModel model);
 
 // Model compilation

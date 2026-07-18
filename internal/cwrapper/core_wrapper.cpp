@@ -128,6 +128,36 @@ OpenVINOModel openvino_core_read_model(OpenVINOCore core, const char* model_path
     }
 }
 
+OpenVINOModel openvino_core_read_model_from_buffer(
+    OpenVINOCore core,
+    const uint8_t* model_buffer,
+    size_t model_size,
+    const uint8_t* weights_buffer,
+    size_t weights_size,
+    OpenVINOError* error
+) {
+    try {
+        ov::Core* c = reinterpret_cast<ov::Core*>(core);
+        if (!model_buffer || model_size == 0) {
+            set_error(error, -1, "model_buffer is empty");
+            return nullptr;
+        }
+        std::string model_str(reinterpret_cast<const char*>(model_buffer), model_size);
+        ov::Tensor weights;
+        if (weights_buffer && weights_size > 0) {
+            weights = ov::Tensor(ov::element::u8, ov::Shape{weights_size});
+            std::memcpy(weights.data(), weights_buffer, weights_size);
+        }
+        std::shared_ptr<ov::Model>* model = new std::shared_ptr<ov::Model>(
+            c->read_model(model_str, weights)
+        );
+        return reinterpret_cast<OpenVINOModel>(model);
+    } catch (const std::exception& e) {
+        set_error_from_exception(error, e);
+        return nullptr;
+    }
+}
+
 void openvino_model_destroy(OpenVINOModel model) {
     if (model) {
         delete reinterpret_cast<std::shared_ptr<ov::Model>*>(model);

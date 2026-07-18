@@ -85,6 +85,18 @@ go run cmd/ovmodel/main.go -model test-model
 go run examples/hello-world/main.go models/test_model.onnx
 ```
 
+### Hello World Bytes Example (In-Memory Buffer)
+
+Load model directly from `[]byte` memory buffers (supports single-file ONNX/TFLite or OpenVINO IR XML+BIN):
+
+```bash
+# Run with ONNX model (single memory buffer, weightsBuffer set to nil)
+go run examples/hello-world-bytes/main.go models/test_model.onnx
+
+# Run with OpenVINO IR (.xml + .bin memory buffers)
+go run examples/hello-world-bytes/main.go models/model.xml
+```
+
 ### Text Embedding Example
 
 Text embedding inference with transformer models:

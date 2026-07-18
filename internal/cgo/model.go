@@ -33,6 +33,46 @@ func (c *Core) ReadModel(modelPath string) (*Model, error) {
 	return (*Model)(unsafe.Pointer(model)), nil
 }
 
+func (c *Core) ReadModelFromBuffer(modelBuffer []byte, weightsBuffer []byte) (*Model, error) {
+	if len(modelBuffer) == 0 {
+		return nil, &Error{
+			Code:    -1,
+			Message: "model buffer cannot be empty",
+		}
+	}
+
+	var modelPtr *C.uint8_t
+	if len(modelBuffer) > 0 {
+		modelPtr = (*C.uint8_t)(unsafe.Pointer(&modelBuffer[0]))
+	}
+
+	var weightsPtr *C.uint8_t
+	if len(weightsBuffer) > 0 {
+		weightsPtr = (*C.uint8_t)(unsafe.Pointer(&weightsBuffer[0]))
+	}
+
+	var cErr C.OpenVINOError
+	model := C.openvino_core_read_model_from_buffer(
+		C.OpenVINOCore(unsafe.Pointer(c)),
+		modelPtr,
+		C.size_t(len(modelBuffer)),
+		weightsPtr,
+		C.size_t(len(weightsBuffer)),
+		&cErr,
+	)
+
+	if model == nil {
+		err := &Error{
+			Code:    int32(cErr.code),
+			Message: C.GoString(cErr.message),
+		}
+		C.openvino_error_free(&cErr)
+		return nil, err
+	}
+
+	return (*Model)(unsafe.Pointer(model)), nil
+}
+
 func (m *Model) Destroy() {
 	if m != nil {
 		C.openvino_model_destroy(C.OpenVINOModel(unsafe.Pointer(m)))
