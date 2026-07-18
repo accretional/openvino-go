@@ -14,6 +14,16 @@ func (c *Core) ReadModel(modelPath string) (*Model, error) {
 	return &Model{model: model}, nil
 }
 
+// ReadModelFromBuffer reads a model from memory buffers (e.g., .xml and optional .bin data, or ONNX/TFLite binary data).
+// weightsBuffer can be nil if the model is self-contained or does not require a separate weights file.
+func (c *Core) ReadModelFromBuffer(modelBuffer []byte, weightsBuffer []byte) (*Model, error) {
+	model, err := c.core.ReadModelFromBuffer(modelBuffer, weightsBuffer)
+	if err != nil {
+		return nil, err
+	}
+	return &Model{model: model}, nil
+}
+
 func (m *Model) Close() {
 	if m.model != nil {
 		m.model.Destroy()
